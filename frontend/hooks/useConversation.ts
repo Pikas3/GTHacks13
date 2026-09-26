@@ -4,21 +4,16 @@
  * Orchestrates one Ambient conversation on the client:
  * record -> transcribe -> query -> (speak) -> idle, plus text fallback and source opens.
  * Components render state from this hook; they contain no pipeline logic.
- *
- * Voice playback uses `lib/audio/player` (barge-in safe). Timings land in `lib/audio/metrics`
- * for a latency panel.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
-import { summarizeTimings, timedAsync, recordTiming } from "@/lib/audio/metrics";
+import { recordTiming, summarizeTimings, timedAsync } from "@/lib/audio/metrics";
 import { playObjectUrl, playPlaceholder, playSpeechResponse, stopActivePlayback } from "@/lib/audio/player";
-import { api, ApiError } from "@/lib/api";
 import { rmsLevelFromTimeDomain } from "@/lib/audioLevel";
+import { api, ApiError } from "@/lib/api";
 import { orbTransition, type OrbEvent } from "@/lib/orbMachine";
 import type { AmbientResponse, EvidenceReference, InputMode, OrbState } from "@/lib/types";
-
-const PLACEHOLDER_SPEAK_MS = 1600;
 
 function startLevelMeter(analyser: AnalyserNode, onLevel: (level: number) => void): () => void {
   const buf = new Uint8Array(analyser.fftSize);
@@ -54,8 +49,14 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
   const [error, setError] = useState<ApiError | null>(null);
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [latencyMs, setLatencyMs] = useState<Partial<Record<"stt" | "query" | "tts_ttfa", number>>>({});
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [hasLiveAudio, setHasLiveAudio] = useState(false);
+
   const sessionIdRef = useRef<string | null>(null);
   const speakGenRef = useRef(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const stopMeterRef = useRef<(() => void) | null>(null);
+  const heldRef = useRef(false);
 
   const send = useCallback((event: OrbEvent) => setState((s) => orbTransition(s, event)), []);
 
@@ -64,69 +65,75 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
     setLatencyMs({ stt: s.stt, query: s.query, tts_ttfa: s.tts_ttfa });
   }, []);
 
-  const stopSpeaking = useCallback(() => {
-    speakGenRef.current += 1;
-    stopActivePlayback();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const stopMeterRef = useRef<(() => void) | null>(null);
-  const heldRef = useRef(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [hasLiveAudio, setHasLiveAudio] = useState(false);
-
-  const send = useCallback((event: OrbEvent) => setState((s) => orbTransition(s, event)), []);
-
   const unlockAudio = useCallback(() => {
     if (typeof window === "undefined") return;
-    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
     if (!audioCtxRef.current) audioCtxRef.current = new Ctor();
     if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
   }, []);
 
-  const clearPlayback = useCallback(() => {
+  const clearMeter = useCallback(() => {
     stopMeterRef.current?.();
     stopMeterRef.current = null;
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      const src = audio.src;
-      audio.removeAttribute("src");
-      audio.load();
-      if (src.startsWith("blob:")) URL.revokeObjectURL(src);
-    }
-    audioRef.current = null;
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
     setHasLiveAudio(false);
     setAudioLevel(0);
   }, []);
 
   const stopSpeaking = useCallback(() => {
-    clearPlayback();
+    speakGenRef.current += 1;
+    clearMeter();
+    stopActivePlayback();
     send({ type: "SPEECH_ENDED" });
-  }, [clearPlayback, send]);
+  }, [clearMeter, send]);
+
+  const attachMeter = useCallback(
+    (audio: HTMLAudioElement) => {
+      clearMeter();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      try {
+        if (ctx.state === "suspended") void ctx.resume();
+        const source = ctx.createMediaElementSource(audio);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+        setHasLiveAudio(true);
+        stopMeterRef.current = startLevelMeter(analyser, setAudioLevel);
+      } catch {
+        setHasLiveAudio(false);
+      }
+    },
+    [clearMeter],
+  );
 
   // New HCP => new conversation; stop any in-flight audio.
   useEffect(() => {
     sessionIdRef.current = null;
     speakGenRef.current += 1;
+    heldRef.current = false;
+    clearMeter();
     stopActivePlayback();
-    // Resetting local conversation state when the selected HCP changes is intentional.
     /* eslint-disable react-hooks/set-state-in-effect */
-    clearPlayback();
     setResponse(null);
     setTranscript("");
     setError(null);
     setState("idle");
     setLatencyMs({});
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [hcpId, clearPlayback]);
+  }, [hcpId, clearMeter]);
 
-  useEffect(() => () => stopActivePlayback(), []);
+  useEffect(
+    () => () => {
+      clearMeter();
+      stopActivePlayback();
+    },
+    [clearMeter],
+  );
 
   const fail = useCallback(
     (e: unknown) => {
@@ -139,79 +146,47 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
   const speak = useCallback(
     async (text: string) => {
       const gen = ++speakGenRef.current;
+      clearMeter();
       try {
         const t0 = performance.now();
+        const markTtfa = () => {
+          recordTiming("tts_ttfa", performance.now() - t0);
+          refreshLatency();
+        };
         try {
           const handle = await api.createSpeech(text);
           if (gen !== speakGenRef.current) return;
           if (handle.is_placeholder) {
-            recordTiming("tts_ttfa", performance.now() - t0);
-            refreshLatency();
+            markTtfa();
             await playPlaceholder();
           } else {
             const res = await api.streamSpeech(handle.speech_id);
             if (gen !== speakGenRef.current) return;
             await playSpeechResponse(res, {
-              onFirstByte: () => {
-                recordTiming("tts_ttfa", performance.now() - t0);
-                refreshLatency();
-              },
+              onFirstByte: markTtfa,
+              onAudio: attachMeter,
             });
           }
         } catch {
           const speech = await timedAsync("tts_total", () => api.synthesize(text));
           if (gen !== speakGenRef.current) return;
-          recordTiming("tts_ttfa", performance.now() - t0);
-          refreshLatency();
+          markTtfa();
           if (!speech.url) await playPlaceholder();
-          else await playObjectUrl(speech.url);
+          else await playObjectUrl(speech.url, { onAudio: attachMeter });
         }
-        if (gen === speakGenRef.current) send({ type: "SPEECH_ENDED" });
+        if (gen === speakGenRef.current) {
+          clearMeter();
+          send({ type: "SPEECH_ENDED" });
+        }
       } catch (e) {
         if (gen === speakGenRef.current) {
           setError(toApiError(e));
+          clearMeter();
           send({ type: "SPEECH_ENDED" });
         }
       }
     },
-    [send, refreshLatency],
-        const speech = await api.synthesize(text);
-        if (!speech.url) {
-          setHasLiveAudio(false);
-          timerRef.current = setTimeout(() => send({ type: "SPEECH_ENDED" }), PLACEHOLDER_SPEAK_MS);
-          return;
-        }
-        const audio = new Audio(speech.url);
-        audioRef.current = audio;
-        const ctx = audioCtxRef.current;
-        if (ctx) {
-          try {
-            if (ctx.state === "suspended") await ctx.resume();
-            const source = ctx.createMediaElementSource(audio);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 1024;
-            analyser.smoothingTimeConstant = 0.72;
-            source.connect(analyser);
-            analyser.connect(ctx.destination);
-            setHasLiveAudio(true);
-            stopMeterRef.current = startLevelMeter(analyser, setAudioLevel);
-          } catch {
-            setHasLiveAudio(false);
-          }
-        }
-        audio.onended = () => {
-          clearPlayback();
-          send({ type: "SPEECH_ENDED" });
-        };
-        await audio.play();
-      } catch (e) {
-        // Voice failure is non-fatal: the answer is already on screen.
-        setError(toApiError(e));
-        clearPlayback();
-        send({ type: "SPEECH_ENDED" });
-      }
-    },
-    [clearPlayback, send],
+    [send, refreshLatency, clearMeter, attachMeter],
   );
 
   const ask = useCallback(
@@ -240,34 +215,29 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
 
   /** Push-to-talk: pointer down. */
   const pressStart = useCallback(async () => {
-    if (!hcpId) return;
-    stopSpeaking();
-    setError(null);
-    send({ type: "PRESS" });
-    const ok = await recorder.start();
-    if (ok) send({ type: "PERMISSION_GRANTED" });
-    else fail(new ApiError("AUDIO_TRANSCRIPTION_FAILED", "Microphone unavailable — use the text box instead."));
-  }, [hcpId, recorder, send, fail, stopSpeaking]);
     if (!hcpId || heldRef.current) return;
     heldRef.current = true;
     unlockAudio();
-    clearPlayback();
+    speakGenRef.current += 1;
+    clearMeter();
+    stopActivePlayback();
     setError(null);
     send({ type: "PRESS" });
     const ok = await recorder.start();
     if (!ok) {
       heldRef.current = false;
       fail(new ApiError("AUDIO_TRANSCRIPTION_FAILED", "Microphone unavailable — use the text box instead."));
-    } else if (!heldRef.current) {
-      // Released before the mic was ready: nothing useful was captured.
+      return;
+    }
+    if (!heldRef.current) {
       await recorder.stop();
       send({ type: "CANCEL" });
-    } else {
-      send({ type: "PERMISSION_GRANTED" });
+      return;
     }
-  }, [hcpId, recorder, send, fail, unlockAudio, clearPlayback]);
+    send({ type: "PERMISSION_GRANTED" });
+  }, [hcpId, recorder, send, fail, unlockAudio, clearMeter]);
 
-  /** Push-to-talk: pointer up. Safe to call when nothing is held. */
+  /** Push-to-talk: pointer up. */
   const pressEnd = useCallback(async () => {
     if (!heldRef.current) return;
     heldRef.current = false;
@@ -290,17 +260,14 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
 
   const submitText = useCallback(
     async (query: string) => {
-      stopSpeaking();
-      send({ type: "SUBMIT_TEXT" });
-      await ask(query, "text");
-    },
-    [send, ask, stopSpeaking],
       unlockAudio();
-      clearPlayback();
+      speakGenRef.current += 1;
+      clearMeter();
+      stopActivePlayback();
       send({ type: "SUBMIT_TEXT" });
       await ask(query, "text");
     },
-    [send, ask, unlockAudio, clearPlayback],
+    [send, ask, unlockAudio, clearMeter],
   );
 
   /** Record SOURCE_OPEN engagement when the HCP opens an evidence source. */
@@ -322,8 +289,6 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
     },
     [hcpId, onInteraction, response],
   );
-
-  useEffect(() => () => clearPlayback(), [clearPlayback]);
 
   return {
     state,

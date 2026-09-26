@@ -2,9 +2,7 @@
  * Audio playback helpers for Ambient TTS.
  *
  * - `playObjectUrl`: buffered MP3/WAV (fallback; works everywhere).
- * - `playSpeechStream`: POST creates speech_id, GET streams bytes into a Blob URL
- *   (works in Safari without MSE; TTFA still waits for first complete response
- *   unless MediaSource is available — see `playWithMediaSource`).
+ * - `playSpeechResponse`: consume a streaming GET body into a Blob URL, then play.
  *
  * Only one clip plays at a time; call `stopActivePlayback` on barge-in / HCP switch.
  */
@@ -12,6 +10,11 @@
 let activeAudio: HTMLAudioElement | null = null;
 let activeUrl: string | null = null;
 let activeAbort: AbortController | null = null;
+
+export type PlayOptions = {
+  onAudio?: (audio: HTMLAudioElement) => void;
+  onFirstByte?: () => void;
+};
 
 export function stopActivePlayback(): void {
   activeAbort?.abort();
@@ -29,10 +32,11 @@ export function stopActivePlayback(): void {
   }
 }
 
-function attach(audio: HTMLAudioElement, url: string | null): Promise<void> {
+function attach(audio: HTMLAudioElement, url: string | null, opts?: PlayOptions): Promise<void> {
   stopActivePlayback();
   activeAudio = audio;
   activeUrl = url;
+  opts?.onAudio?.(audio);
   return new Promise((resolve, reject) => {
     audio.onended = () => {
       if (activeUrl) URL.revokeObjectURL(activeUrl);
@@ -51,9 +55,9 @@ function attach(audio: HTMLAudioElement, url: string | null): Promise<void> {
   });
 }
 
-export async function playObjectUrl(url: string): Promise<void> {
+export async function playObjectUrl(url: string, opts?: PlayOptions): Promise<void> {
   const audio = new Audio(url);
-  return attach(audio, url);
+  return attach(audio, url, opts);
 }
 
 export async function playPlaceholder(ms = 1600): Promise<void> {
@@ -74,7 +78,7 @@ export async function playPlaceholder(ms = 1600): Promise<void> {
  */
 export async function playSpeechResponse(
   res: Response,
-  opts?: { onFirstByte?: () => void },
+  opts?: PlayOptions,
 ): Promise<{ provider: string; isPlaceholder: boolean }> {
   const provider = res.headers.get("x-tts-provider") ?? "unknown";
   const isPlaceholder = res.headers.get("x-tts-placeholder") === "true";
@@ -101,7 +105,7 @@ export async function playSpeechResponse(
   const mime = res.headers.get("content-type") || "audio/mpeg";
   const blob = new Blob(chunks, { type: mime });
   const url = URL.createObjectURL(blob);
-  await playObjectUrl(url);
+  await playObjectUrl(url, opts);
   return { provider, isPlaceholder: false };
 }
 
