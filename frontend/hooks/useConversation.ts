@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { useWakeWord } from "@/hooks/useWakeWord";
 import { recordTiming, summarizeTimings, timedAsync } from "@/lib/audio/metrics";
 import { playObjectUrl, playPlaceholder, playSpeechResponse, stopActivePlayback } from "@/lib/audio/player";
 import { rmsLevelFromTimeDomain } from "@/lib/audioLevel";
@@ -213,6 +214,26 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
     [hcpId, onInteraction, send, speak, speechEnabled, fail, refreshLatency],
   );
 
+  const finishUtterance = useCallback(
+    async (blob: Blob | null) => {
+      if (!blob) {
+        send({ type: "CANCEL" });
+        return;
+      }
+      send({ type: "RELEASE" });
+      try {
+        const result = await timedAsync("stt", () => api.transcribe(blob));
+        refreshLatency();
+        setTranscript(result.text);
+        send({ type: "TRANSCRIBED" });
+        await ask(result.text, "voice");
+      } catch (e) {
+        fail(e);
+      }
+    },
+    [send, ask, fail, refreshLatency],
+  );
+
   /** Push-to-talk: pointer down. */
   const pressStart = useCallback(async () => {
     if (!hcpId || heldRef.current) return;
@@ -242,21 +263,28 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
     if (!heldRef.current) return;
     heldRef.current = false;
     const blob = await recorder.stop();
-    if (!blob) {
-      send({ type: "CANCEL" });
-      return;
-    }
-    send({ type: "RELEASE" });
-    try {
-      const result = await timedAsync("stt", () => api.transcribe(blob));
-      refreshLatency();
-      setTranscript(result.text);
-      send({ type: "TRANSCRIBED" });
-      await ask(result.text, "voice");
-    } catch (e) {
-      fail(e);
-    }
-  }, [recorder, send, ask, fail, refreshLatency]);
+    await finishUtterance(blob);
+  }, [recorder, finishUtterance]);
+
+  // Hands-free: silence / max-duration auto-stop finishes the utterance after wake word.
+  useEffect(() => {
+    recorder.setOnAutoStop((blob) => {
+      if (!heldRef.current) return;
+      heldRef.current = false;
+      void finishUtterance(blob);
+    });
+    return () => recorder.setOnAutoStop(null);
+  }, [recorder, finishUtterance]);
+
+  const onWake = useCallback(() => {
+    if (!hcpId || heldRef.current || (state !== "idle" && state !== "error" && state !== "speaking")) return;
+    void pressStart();
+  }, [hcpId, state, pressStart]);
+
+  const wake = useWakeWord({
+    enabled: Boolean(hcpId) && (state === "idle" || state === "error"),
+    onWake,
+  });
 
   const submitText = useCallback(
     async (query: string) => {
@@ -308,5 +336,9 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
     latencyMs,
     audioLevel,
     hasLiveAudio,
+    /** Browser supports SpeechRecognition wake phrase. */
+    wakeSupported: wake.supported,
+    /** Wake-word mic is actively listening for "hey Ambient". */
+    wakeListening: wake.listening,
   };
 }

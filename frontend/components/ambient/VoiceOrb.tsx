@@ -112,6 +112,8 @@ export interface VoiceOrbProps {
   /** TTS playback level 0–1 while speaking. */
   audioLevel?: number;
   hasLiveAudio?: boolean;
+  /** Wake-word listener is armed (idle + browser support). */
+  wakeListening?: boolean;
   errorMessage?: string | null;
   onPressStart: () => void;
   onPressEnd: () => void;
@@ -124,6 +126,7 @@ export function VoiceOrb({
   level = 0,
   audioLevel = 0,
   hasLiveAudio = false,
+  wakeListening = false,
   errorMessage,
   onPressStart,
   onPressEnd,
@@ -173,7 +176,11 @@ export function VoiceOrb({
         <HoldRing progress={holdProgress} visible={state === "listening"} />
         <motion.button
           type="button"
-          aria-label={state === "speaking" ? "Stop speaking" : "Hold to ask a question"}
+          aria-label={
+            state === "speaking"
+              ? "Stop speaking"
+              : 'Hold to ask, or say "hey Ambient"'
+          }
           aria-pressed={holding}
           disabled={disabled}
           onPointerDown={(e) => {
@@ -219,7 +226,12 @@ export function VoiceOrb({
           level={state === "speaking" && hasLiveAudio ? audioLevel : state === "listening" ? level : null}
           reduced={reduced}
         />
-        <span>{label}</span>
+        <span>
+          {label}
+          {state === "idle" && wakeListening ? (
+            <span className="mt-1 block text-xs text-emerald-600/90 dark:text-emerald-400/90">Wake word on</span>
+          ) : null}
+        </span>
       </div>
     </div>
   );
