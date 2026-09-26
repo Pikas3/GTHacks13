@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.ambient.personalization import EngagementService, PersonalizationService
 from app.dependencies import Repositories, build_orchestrator, build_repositories
 from app.impiricus.mock_ion import MockIONService
+from app.impiricus.signals import decay_score
 from app.ingestion.seed import stable_id
 from app.schemas.ambient import AmbientResponse, EngagementEventRequest
 from app.schemas.enums import EventType, InputMode, IntentType
@@ -96,10 +97,18 @@ async def test_source_open_moves_the_whats_new_anchor(db, ai) -> None:
 
 
 async def test_signals_persist_to_hcp_interest(db, ai) -> None:
-    before = {i.entity: i.score for i in await with_repos(db, lambda r: r.hcps.get_interests(MORGAN))}
-    await ask(db, ai, "What about Novara in renal impairment?", mode=InputMode.VOICE)
+    before = {i.entity: i for i in await with_repos(db, lambda r: r.hcps.get_interests(MORGAN))}
+    resp = await ask(db, ai, "What about Novara in renal impairment?", mode=InputMode.VOICE)
     after = {i.entity: i for i in await with_repos(db, lambda r: r.hcps.get_interests(MORGAN))}
-    assert after["Novara"].score == pytest.approx(before["Novara"] + 0.08)
+    novara = next(s for s in resp.signals_generated if s.entity == "Novara")
+    decayed = decay_score(
+        before["Novara"].score,
+        before["Novara"].last_interaction_at,
+        novara.timestamp,
+        db.settings.interest_half_life_days,
+    )
+    assert after["Novara"].score == pytest.approx(decayed + 0.08)
+    assert after["Novara"].last_interaction_at == novara.timestamp
     assert after["renal impairment"].score == pytest.approx(0.08)
     assert after["renal impairment"].interaction_count == 1
 

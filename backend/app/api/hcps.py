@@ -3,8 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from app.ambient.memory import MemoryService
-from app.dependencies import Repositories, get_memory, get_repositories
+from app.dependencies import Repositories, get_ion, get_memory, get_repositories
 from app.errors import AppError, ErrorCode
+from app.impiricus.mock_ion import MockIONService
 from app.schemas.hcp import HCPDetail, HCPInterestRead, HCPRead
 from app.schemas.interaction import TimelineEntry
 
@@ -17,11 +18,13 @@ async def list_hcps(repos: Repositories = Depends(get_repositories)) -> list[HCP
 
 
 @router.get("/{hcp_id}", response_model=HCPDetail)
-async def get_hcp(hcp_id: UUID, repos: Repositories = Depends(get_repositories)) -> HCPDetail:
+async def get_hcp(
+    hcp_id: UUID, repos: Repositories = Depends(get_repositories), ion: MockIONService = Depends(get_ion)
+) -> HCPDetail:
     detail = await repos.hcps.get_detail(hcp_id)
     if detail is None:
         raise AppError(ErrorCode.INVALID_HCP, f"Unknown HCP {hcp_id}")
-    return detail
+    return detail.model_copy(update={"interests": await ion.get_topic_affinities(hcp_id)})
 
 
 @router.get("/{hcp_id}/timeline", response_model=list[TimelineEntry])
@@ -37,7 +40,10 @@ async def get_timeline(
 
 
 @router.get("/{hcp_id}/interests", response_model=list[HCPInterestRead])
-async def get_interests(hcp_id: UUID, repos: Repositories = Depends(get_repositories)) -> list[HCPInterestRead]:
+async def get_interests(
+    hcp_id: UUID, repos: Repositories = Depends(get_repositories), ion: MockIONService = Depends(get_ion)
+) -> list[HCPInterestRead]:
+    """Current interest scores (time-decayed; see INTEREST_HALF_LIFE_DAYS)."""
     if await repos.hcps.get_hcp(hcp_id) is None:
         raise AppError(ErrorCode.INVALID_HCP, f"Unknown HCP {hcp_id}")
-    return await repos.hcps.get_interests(hcp_id)
+    return await ion.get_topic_affinities(hcp_id)

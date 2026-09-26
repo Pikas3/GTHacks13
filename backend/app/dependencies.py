@@ -153,8 +153,14 @@ def build_repositories(db: AsyncSession, capabilities: dict[str, bool]) -> Repos
     )
 
 
+def build_ion(settings: Settings, repos: Repositories) -> MockIONService:
+    return MockIONService(
+        repos.hcps, repos.interactions, repos.resources, half_life_days=settings.interest_half_life_days
+    )
+
+
 def build_orchestrator(settings: Settings, ai: AIProviders, repos: Repositories) -> AmbientOrchestrator:
-    ion = MockIONService(repos.hcps, repos.interactions, repos.resources)
+    ion = build_ion(settings, repos)
     return AmbientOrchestrator(
         intent_classifier=ai.intent,
         retriever=HybridResourceRetriever(
@@ -179,8 +185,10 @@ def get_repositories(
     return build_repositories(db, container.capabilities)
 
 
-def get_ion(repos: Repositories = Depends(get_repositories)) -> MockIONService:
-    return MockIONService(repos.hcps, repos.interactions, repos.resources)
+def get_ion(
+    repos: Repositories = Depends(get_repositories), container: ServiceContainer = Depends(get_container)
+) -> MockIONService:
+    return build_ion(container.settings, repos)
 
 
 def get_memory(repos: Repositories = Depends(get_repositories)) -> MemoryService:

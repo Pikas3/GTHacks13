@@ -47,6 +47,7 @@ class FakeHCPRepository:
                     entity_type=EntityType(i["entity_type"]),
                     score=i["score"],
                     interaction_count=i["interaction_count"],
+                    last_interaction_at=datetime.fromisoformat(i["last_interaction_at"]),
                 )
                 for i in h["interests"]
             }
