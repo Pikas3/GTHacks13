@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* Design tokens (shadcn-compatible names). Ambient is dark-first. */
+:root {
+  --background: oklch(0.16 0.02 260);
+  --foreground: oklch(0.96 0.01 260);
+  --card: oklch(0.2 0.025 260 / 0.7);
+  --card-foreground: var(--foreground);
+  --muted: oklch(0.26 0.02 260);
+  --muted-foreground: oklch(0.72 0.02 260);
+  --border: oklch(0.32 0.02 260 / 0.6);
+  --primary: oklch(0.72 0.14 200);
+  --primary-foreground: oklch(0.16 0.02 260);
+  --accent: oklch(0.7 0.16 300);
+  --success: oklch(0.75 0.15 155);
+  --warning: oklch(0.8 0.14 80);
+  --destructive: oklch(0.65 0.2 25);
+  --radius: 0.9rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --radius-lg: var(--radius);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  min-height: 100dvh;
+  background-image:
+    radial-gradient(60rem 40rem at 20% -10%, oklch(0.35 0.08 230 / 0.35), transparent 60%),
+    radial-gradient(50rem 40rem at 110% 20%, oklch(0.35 0.1 300 / 0.25), transparent 60%);
+  background-attachment: fixed;
+}
+
+* {
+  border-color: var(--border);
+}

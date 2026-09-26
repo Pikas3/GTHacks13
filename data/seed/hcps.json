@@ -1,0 +1,56 @@
+[
+  {
+    "external_id": "SYN-HCP-001",
+    "name": "Dr. Maya Morgan",
+    "specialty": "Oncology",
+    "organization": "Synthetic Regional Cancer Center",
+    "region": "Northeast (synthetic)",
+    "preferences": [
+      {"key": "clinical_evidence", "value": "Prefers primary trial data over summaries", "weight": 0.8},
+      {"key": "long_term_outcomes", "value": "Follows durability / follow-up readouts", "weight": 0.7},
+      {"key": "patient_access", "value": "Frequently checks access and support programs", "weight": 0.55}
+    ],
+    "interests": [
+      {"entity": "HER2", "entity_type": "BIOMARKER", "score": 0.82, "interaction_count": 9, "last_interaction_at": "2026-07-02T16:30:00+00:00"},
+      {"entity": "Novara", "entity_type": "PRODUCT", "score": 0.64, "interaction_count": 5, "last_interaction_at": "2026-07-02T16:30:00+00:00"},
+      {"entity": "long-term outcomes", "entity_type": "TOPIC", "score": 0.6, "interaction_count": 4, "last_interaction_at": "2026-06-14T14:12:00+00:00"},
+      {"entity": "patient access", "entity_type": "TOPIC", "score": 0.55, "interaction_count": 3, "last_interaction_at": "2026-07-02T16:30:00+00:00"},
+      {"entity": "dosing", "entity_type": "TOPIC", "score": 0.48, "interaction_count": 2, "last_interaction_at": "2026-06-14T14:05:00+00:00"},
+      {"entity": "safety", "entity_type": "TOPIC", "score": 0.24, "interaction_count": 1, "last_interaction_at": "2026-06-14T14:05:00+00:00"}
+    ]
+  },
+  {
+    "external_id": "SYN-HCP-002",
+    "name": "Dr. Ethan Chen",
+    "specialty": "Cardiology",
+    "organization": "Synthetic Heart Institute",
+    "region": "Midwest (synthetic)",
+    "preferences": [
+      {"key": "dosing_information", "value": "Wants dose-adjustment tables first", "weight": 0.85},
+      {"key": "clinical_evidence", "value": "Reads study design details", "weight": 0.6}
+    ],
+    "interests": [
+      {"entity": "heart failure", "entity_type": "CONDITION", "score": 0.78, "interaction_count": 7, "last_interaction_at": "2026-08-02T13:00:00+00:00"},
+      {"entity": "Cardexa", "entity_type": "PRODUCT", "score": 0.7, "interaction_count": 6, "last_interaction_at": "2026-08-02T13:00:00+00:00"},
+      {"entity": "renal impairment", "entity_type": "POPULATION", "score": 0.66, "interaction_count": 4, "last_interaction_at": "2026-08-02T13:00:00+00:00"},
+      {"entity": "dosing", "entity_type": "TOPIC", "score": 0.61, "interaction_count": 4, "last_interaction_at": "2026-08-02T13:00:00+00:00"}
+    ]
+  },
+  {
+    "external_id": "SYN-HCP-003",
+    "name": "Dr. Sofia Patel",
+    "specialty": "Primary Care",
+    "organization": "Synthetic Community Health Group",
+    "region": "Southeast (synthetic)",
+    "preferences": [
+      {"key": "patient_resources", "value": "Looks for patient-facing education materials", "weight": 0.8},
+      {"key": "safety", "value": "Prioritizes safety summaries", "weight": 0.7}
+    ],
+    "interests": [
+      {"entity": "safety", "entity_type": "TOPIC", "score": 0.72, "interaction_count": 5, "last_interaction_at": "2026-08-11T15:00:00+00:00"},
+      {"entity": "adherence", "entity_type": "TOPIC", "score": 0.58, "interaction_count": 3, "last_interaction_at": "2026-08-11T15:00:00+00:00"},
+      {"entity": "Lumetrex", "entity_type": "PRODUCT", "score": 0.52, "interaction_count": 3, "last_interaction_at": "2026-08-10T15:00:00+00:00"},
+      {"entity": "patient resources", "entity_type": "TOPIC", "score": 0.5, "interaction_count": 2, "last_interaction_at": "2026-08-10T15:00:00+00:00"}
+    ]
+  }
+]

@@ -1,0 +1,79 @@
+"""Repository contracts (owned by the backend/database workstream).
+
+Services depend on these Protocols, not on SQLAlchemy. Tests provide in-memory fakes.
+"""
+
+from datetime import datetime
+from typing import Any, Protocol
+from uuid import UUID
+
+from app.schemas.conversation import ConversationContext, ConversationTurnRead, SessionDetail, SessionRead
+from app.schemas.enums import ConversationRole, EntityType, EventType
+from app.schemas.hcp import HCPDetail, HCPInterestRead, HCPPreferenceRead, HCPRead
+from app.schemas.intelligence import EngagementBucket, TopicAffinity
+from app.schemas.interaction import InteractionEventCreate, InteractionEventRead
+from app.schemas.resource import ChunkHit, ResourceDetail, ResourceRead
+
+
+class HCPRepository(Protocol):
+    async def list_hcps(self) -> list[HCPRead]: ...
+    async def get_hcp(self, hcp_id: UUID) -> HCPRead | None: ...
+    async def get_detail(self, hcp_id: UUID) -> HCPDetail | None: ...
+    async def get_preferences(self, hcp_id: UUID) -> list[HCPPreferenceRead]: ...
+    async def get_interests(self, hcp_id: UUID) -> list[HCPInterestRead]: ...
+    async def upsert_interest(
+        self, hcp_id: UUID, entity: str, entity_type: EntityType, new_score: float, at: datetime
+    ) -> HCPInterestRead: ...
+
+
+class ResourceRepository(Protocol):
+    async def list_resources(self, product: str | None = None) -> list[ResourceRead]: ...
+    async def get_resource(self, resource_id: UUID) -> ResourceRead | None: ...
+    async def get_detail(self, resource_id: UUID) -> ResourceDetail | None: ...
+    async def get_many(self, resource_ids: list[UUID]) -> list[ResourceRead]: ...
+    async def published_after(self, product: str, after: datetime | None) -> list[ResourceRead]: ...
+    async def get_superseded(self, resource_id: UUID) -> ResourceRead | None: ...
+    async def vector_search(
+        self,
+        embedding: list[float],
+        *,
+        limit: int,
+        product: str | None = None,
+        published_after: datetime | None = None,
+        approved_only: bool = True,
+        exclude_superseded: bool = True,
+    ) -> list[ChunkHit]: ...
+
+
+class InteractionRepository(Protocol):
+    """Time-series engagement store. Also serves the structured-memory queries (MemoryRepository role)."""
+
+    async def record(self, event: InteractionEventCreate) -> InteractionEventRead: ...
+    async def recent(
+        self, hcp_id: UUID, *, limit: int = 20, since: datetime | None = None
+    ) -> list[InteractionEventRead]: ...
+    async def last_with_entity(
+        self,
+        hcp_id: UUID,
+        entity: str,
+        *,
+        before: datetime | None = None,
+        event_types: set[EventType] | None = None,
+    ) -> InteractionEventRead | None: ...
+    async def viewed_resource_ids(self, hcp_id: UUID, entity: str | None = None) -> set[UUID]: ...
+    async def top_entities(
+        self, hcp_id: UUID, *, since: datetime | None = None, limit: int = 10
+    ) -> list[TopicAffinity]: ...
+    async def engagement_over_time(
+        self, hcp_id: UUID, *, bucket: str = "1 day", since: datetime | None = None
+    ) -> list[EngagementBucket]: ...
+
+
+class ConversationRepository(Protocol):
+    async def create_session(self, hcp_id: UUID) -> SessionRead: ...
+    async def get_session(self, session_id: UUID) -> SessionRead | None: ...
+    async def get_detail(self, session_id: UUID) -> SessionDetail | None: ...
+    async def update_context(self, session_id: UUID, context: ConversationContext) -> None: ...
+    async def add_turn(
+        self, session_id: UUID, role: ConversationRole, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationTurnRead: ...

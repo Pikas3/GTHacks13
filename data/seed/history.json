@@ -1,0 +1,11 @@
+[
+  {"hcp_external_id": "SYN-HCP-001", "timestamp": "2026-06-14T14:05:00+00:00", "event_type": "RESOURCE_VIEW", "resource_key": "novara-pi-v1", "entity": "Novara"},
+  {"hcp_external_id": "SYN-HCP-001", "timestamp": "2026-06-14T14:12:00+00:00", "event_type": "TEXT_QUERY", "query_text": "long-term outcomes", "intent": "QUESTION_ANSWERING", "entity": "Novara", "topic": "long-term outcomes", "resource_key": "novara-trial-a-primary"},
+  {"hcp_external_id": "SYN-HCP-001", "timestamp": "2026-07-02T16:30:00+00:00", "event_type": "RESOURCE_VIEW", "resource_key": "novara-access-guide", "entity": "Novara", "topic": "patient access"},
+
+  {"hcp_external_id": "SYN-HCP-002", "timestamp": "2026-07-20T12:40:00+00:00", "event_type": "RESOURCE_VIEW", "resource_key": "cardexa-pi-v1", "entity": "Cardexa"},
+  {"hcp_external_id": "SYN-HCP-002", "timestamp": "2026-08-02T13:00:00+00:00", "event_type": "VOICE_QUERY", "query_text": "Cardexa dosing in renal impairment", "intent": "QUESTION_ANSWERING", "entity": "Cardexa", "topic": "renal impairment", "resource_key": "cardexa-pi-v1"},
+
+  {"hcp_external_id": "SYN-HCP-003", "timestamp": "2026-08-10T15:00:00+00:00", "event_type": "RESOURCE_VIEW", "resource_key": "lumetrex-patient-guide", "entity": "Lumetrex", "topic": "patient resources"},
+  {"hcp_external_id": "SYN-HCP-003", "timestamp": "2026-08-11T15:00:00+00:00", "event_type": "TEXT_QUERY", "query_text": "Lumetrex adherence tips", "intent": "QUESTION_ANSWERING", "entity": "Lumetrex", "topic": "adherence"}
+]

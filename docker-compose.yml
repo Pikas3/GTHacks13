@@ -1,0 +1,52 @@
+# Local development infrastructure for Impiricus Ambient (hackathon prototype).
+#
+#   docker compose up -d db                 # database only (recommended)
+#   docker compose --profile app up --build  # database + backend + frontend
+#
+# The timescaledb-ha image ships TimescaleDB *and* pgvector, mirroring Tiger Data cloud.
+name: impiricus-ambient
+
+services:
+  db:
+    image: timescale/timescaledb-ha:pg17
+    environment:
+      POSTGRES_USER: ambient
+      POSTGRES_PASSWORD: ambient
+      POSTGRES_DB: ambient
+    ports:
+      - "${AMBIENT_DB_PORT:-5433}:5432"
+    volumes:
+      - ambient-db:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ambient -d ambient"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    profiles: ["app"]
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ambient:ambient@db:5432/ambient
+      DATA_DIR: /data
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["app"]
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  ambient-db:
