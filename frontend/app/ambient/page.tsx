@@ -66,6 +66,7 @@ export default function AmbientPage() {
             level={convo.level}
             audioLevel={convo.audioLevel}
             hasLiveAudio={convo.hasLiveAudio}
+            wakeListening={convo.wakeListening}
             errorMessage={pageError ? (ERROR_MESSAGE[pageError.code] ?? pageError.message) : null}
             onPressStart={() => void convo.pressStart()}
             onPressEnd={() => void convo.pressEnd()}

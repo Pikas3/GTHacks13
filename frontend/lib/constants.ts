@@ -3,13 +3,13 @@ import type { ApiErrorCode, OrbState, ResourceType } from "@/lib/types";
 export const APP_NAME = "Impiricus Ambient";
 
 export const ORB_STATE_LABEL: Record<OrbState, string> = {
-  idle: "Hold to ask",
+  idle: 'Hold to ask · or say "hey Ambient"',
   requesting_permission: "Allow microphone access…",
-  listening: "Listening…",
+  listening: "Listening… say your question",
   transcribing: "Transcribing…",
   thinking: "Finding approved evidence…",
   speaking: "Speaking",
-  error: "Something went wrong — hold to try again",
+  error: "Something went wrong — hold or say hey Ambient",
 };
 
 export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {

@@ -33,8 +33,13 @@ export function useAudioRecorder() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const stopResolverRef = useRef<((blob: Blob | null) => void) | null>(null);
+  const onAutoStopRef = useRef<((blob: Blob | null) => void) | null>(null);
   const silentMsRef = useRef(0);
   const lastRafTsRef = useRef(0);
+
+  const setOnAutoStop = useCallback((cb: ((blob: Blob | null) => void) | null) => {
+    onAutoStopRef.current = cb;
+  }, []);
 
   const releaseStream = useCallback(() => {
     if (rafRef.current != null) {
@@ -82,8 +87,10 @@ export function useAudioRecorder() {
 
   const requestStop = useCallback(() => {
     void finishRecording().then((blob) => {
-      stopResolverRef.current?.(blob);
+      const waiter = stopResolverRef.current;
       stopResolverRef.current = null;
+      if (waiter) waiter(blob);
+      else onAutoStopRef.current?.(blob);
     });
   }, [finishRecording]);
 
@@ -180,5 +187,5 @@ export function useAudioRecorder() {
     return finishRecording();
   }, [finishRecording]);
 
-  return { status, start, stop, level };
+  return { status, start, stop, level, setOnAutoStop };
 }
