@@ -1,92 +1,126 @@
-"""Integration fixtures: a real Timescale/pgvector database, migrated with Alembic and seeded.
+"""Integration fixtures: a real Postgres/Timescale database, isolated in a throwaway schema.
 
-Skipped unless TEST_DATABASE_URL is set, e.g.
-    TEST_DATABASE_URL=postgresql+asyncpg://ambient:ambient@localhost:5433/ambient_test make backend-itest
-
-Safety: every test TRUNCATEs and reseeds, so the database name must contain "test". The database is
-dropped and recreated once per run (needs CREATE DATABASE rights, which the local container has).
+Runs only when TEST_DATABASE_URL is set (`make backend-itest` defaults it to the local compose DB).
+Each run creates schema `itest_<random>`, runs the real Alembic migrations into it (via
+DB_SEARCH_PATH), and drops it afterwards. Schema isolation works on local compose *and* on a Tiger
+Data service (which only has the one `tsdb` database), and never touches the demo data.
 """
 
 import asyncio
 import os
 import subprocess
 import sys
-from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
-from urllib.parse import urlsplit, urlunsplit
+import uuid
+from collections.abc import Iterator
 
-import asyncpg
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.config import BACKEND_DIR, Settings
-from app.db.session import create_engine, create_session_factory, detect_capabilities
-from app.dependencies import build_ai_providers
-from app.ingestion.seed import seed_database
+from app.config import BACKEND_DIR, Settings, get_settings
+from app.ingestion.seed import seed_database, stable_id
+from app.main import create_app
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+MORGAN_ID = stable_id("hcp", "SYN-HCP-001")
 
 
-def _settings(url: str) -> Settings:
-    return Settings(_env_file=None, database_url=url, use_mock_ai=True, use_mock_voice=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        if "tests/integration" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+            if not TEST_DATABASE_URL:
+                item.add_marker(pytest.mark.skip(reason="TEST_DATABASE_URL not set"))
 
 
-def _libpq_url(url: str, database: str | None = None) -> str:
-    parts = urlsplit(url)
-    path = f"/{database}" if database is not None else parts.path
-    return urlunsplit(("postgresql", parts.netloc, path, parts.query, parts.fragment))
-
-
-async def _recreate_database(url: str) -> None:
-    name = urlsplit(url).path.lstrip("/")
-    conn = await asyncpg.connect(_libpq_url(url, "postgres"))
-    try:
-        await conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
-        await conn.execute(f'CREATE DATABASE "{name}"')
-    finally:
-        await conn.close()
-
-
-@pytest.fixture(scope="session")
-def database_url() -> Iterator[str]:
-    if not TEST_DATABASE_URL:
-        pytest.skip("TEST_DATABASE_URL not set")
-    name = urlsplit(TEST_DATABASE_URL).path.lstrip("/")
-    if "test" not in name:
-        pytest.exit(f"Refusing to run destructive integration tests against database {name!r}", returncode=2)
-    asyncio.run(_recreate_database(TEST_DATABASE_URL))
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND_DIR,
-        env={**os.environ, "DATABASE_URL": TEST_DATABASE_URL},
-        check=True,
-        capture_output=True,
+async def _admin_sql(settings: Settings, *statements: str) -> None:
+    """Run statements without the itest search_path (extensions must live in `public`)."""
+    engine = create_async_engine(
+        settings.async_database_url,
+        connect_args={k: v for k, v in settings.database_connect_args().items() if k != "server_settings"},
+        isolation_level="AUTOCOMMIT",
     )
-    yield TEST_DATABASE_URL
-
-
-@dataclass
-class IntegrationDB:
-    engine: AsyncEngine
-    settings: Settings
-    capabilities: dict[str, bool]
-
-    def session(self) -> AsyncSession:
-        return create_session_factory(self.engine)()
-
-
-@pytest.fixture
-async def db(database_url: str) -> AsyncIterator[IntegrationDB]:
-    """Freshly seeded database per test (seeding with mock embeddings takes well under a second)."""
-    settings = _settings(database_url)
-    engine = create_engine(settings)
-    await seed_database(engine, settings, reset=True)
     try:
-        yield IntegrationDB(engine, settings, await detect_capabilities(engine))
+        async with engine.connect() as conn:
+            for stmt in statements:
+                await conn.execute(text(stmt))
     finally:
         await engine.dispose()
 
 
+async def query(settings: Settings, sql: str, **params: object) -> list[tuple]:
+    engine = create_async_engine(settings.async_database_url, connect_args=settings.database_connect_args())
+    try:
+        async with engine.connect() as conn:
+            return [tuple(r) for r in await conn.execute(text(sql), params)]
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def itest_settings() -> Iterator[Settings]:
+    assert TEST_DATABASE_URL
+    schema = f"itest_{uuid.uuid4().hex[:10]}"
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        database_url=TEST_DATABASE_URL,
+        db_search_path=schema,
+        use_mock_ai=True,
+        use_mock_voice=True,
+        gemini_embedding_dimension=get_settings().gemini_embedding_dimension,
+    )
+    asyncio.run(
+        _admin_sql(
+            settings,
+            "CREATE EXTENSION IF NOT EXISTS vector SCHEMA public",
+            """DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS timescaledb;
+               EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'no timescaledb'; END $$""",
+            f"CREATE SCHEMA {schema}",
+        )
+    )
+    env = {
+        **os.environ,
+        "DATABASE_URL": TEST_DATABASE_URL,
+        "DB_SEARCH_PATH": schema,
+        "USE_MOCK_AI": "true",
+        "GEMINI_EMBEDDING_DIMENSION": str(settings.gemini_embedding_dimension),
+    }
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=BACKEND_DIR,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        migrated = asyncio.run(query(settings, "SELECT to_regclass(:t) IS NOT NULL", t=f"{schema}.interaction_event"))
+        assert migrated == [(True,)], f"migrations did not run inside schema {schema}"
+        yield settings
+    except subprocess.CalledProcessError as exc:
+        pytest.fail(f"alembic upgrade failed:\n{exc.stderr}")
+    finally:
+        # Drop Timescale objects explicitly first so their catalog entries/jobs go cleanly.
+        asyncio.run(
+            _admin_sql(
+                settings,
+                f"DROP MATERIALIZED VIEW IF EXISTS {schema}.hcp_topic_engagement_daily CASCADE",
+                f"DROP TABLE IF EXISTS {schema}.interaction_event CASCADE",
+                f"DROP SCHEMA IF EXISTS {schema} CASCADE",
+            )
+        )
+
+
 @pytest.fixture
-def ai(db: IntegrationDB):
-    return build_ai_providers(db.settings)
+def seeded(itest_settings: Settings) -> Settings:
+    """Fresh demo state for every test (`make seed` equivalent)."""
+    asyncio.run(seed_database(itest_settings, reset=True))
+    return itest_settings
+
+
+@pytest.fixture
+def client(seeded: Settings) -> Iterator[TestClient]:
+    with TestClient(create_app(seeded)) as c:
+        yield c

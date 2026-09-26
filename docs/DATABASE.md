@@ -6,7 +6,67 @@ normalized automatically for asyncpg (`app/config.py`).
 
 - Local: `make db-up` starts `timescale/timescaledb-ha:pg17` on **port 5433**. 5433 avoids a clash with any
   local Postgres on 5432.
-- Cloud: set `DATABASE_URL` to your Tiger Data service, then `make migrate seed`.
+- Cloud: set `DATABASE_URL` to your Tiger Data service, then `make migrate seed db-verify`
+  (details below).
+
+## Tiger Data (cloud) deployment
+
+1. In the Tiger Cloud console create a **Time-series and analytics** service (PostgreSQL 17 +
+   TimescaleDB). pgvector ships with every service; migration 0001 runs `CREATE EXTENSION IF NOT EXISTS
+   vector`, which `tsdbadmin` is allowed to do.
+2. Copy the **service URL** (`postgres://tsdbadmin:…@<id>.<project>.tsdb.cloud.timescale.com:<port>/tsdb?sslmode=require`)
+   into `.env` as `DATABASE_URL`. **Never commit it** (`.env` is git-ignored). The URL is normalized
+   automatically: scheme → `postgresql+asyncpg`, `sslmode` → asyncpg `ssl=` (`require`, `verify-ca` and
+   `verify-full` are passed through).
+3. Run:
+
+   ```bash
+   make migrate seed db-verify
+   ```
+
+   `db-verify` (`python -m app.db.verify`) prints extension versions, hypertables, continuous aggregates,
+   Timescale jobs and row counts, and exits non-zero if something is missing. Expected on Tiger Data:
+   `vector` + `timescaledb` in the extension list; `interaction_event` in
+   `timescaledb_information.hypertables`; `hcp_topic_engagement_daily` in
+   `timescaledb_information.continuous_aggregates`; a refresh-policy job.
+4. `make backend`, then `curl -s localhost:8000/api/health` should show `"database": "ok",
+   "timescaledb": true, "pgvector": true`.
+5. Optional: `make backend-itest TEST_DATABASE_URL="$DATABASE_URL"` runs the integration suite in a
+   throwaway schema on the same service (demo data is untouched).
+
+Manual check in `psql "$DATABASE_URL"`:
+
+```sql
+SELECT extname, extversion FROM pg_extension WHERE extname IN ('timescaledb', 'vector');
+SELECT hypertable_name, num_chunks FROM timescaledb_information.hypertables;
+SELECT view_name, materialized_only FROM timescaledb_information.continuous_aggregates;
+SELECT job_id, proc_name, schedule_interval FROM timescaledb_information.jobs WHERE job_id >= 1000;
+```
+
+### Connection settings (all in `app/config.py`, overridable from `.env`)
+
+| Setting | Default | Why |
+|---------|---------|-----|
+| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` | 5 / 5 | Tiger Data plans cap connections, and backend + seed + teammates share them |
+| `DB_POOL_RECYCLE_S` | 1800 | recycle before cloud idle timeouts drop connections (plus `pool_pre_ping`) |
+| `DB_CONNECT_TIMEOUT_S` | 10 | fail fast instead of hanging a request when the service is paused/unreachable |
+| `DB_STATEMENT_TIMEOUT_MS` | 15000 | server-side `statement_timeout` per connection; `0` disables. Migrations always run without it |
+| `DB_SEARCH_PATH` | unset | put all tables (and `alembic_version`) in your own schema, e.g. one per teammate on a shared service. Extensions stay in `public`. Create the schema first: `CREATE SCHEMA dev_alex;` |
+| `DB_USE_POOLER` | false | set `true` if `DATABASE_URL` uses Tiger's transaction-mode pooler; disables asyncpg prepared-statement caches |
+
+Every connection also sets `application_name = impiricus-ambient`, so it is easy to find in
+`pg_stat_activity`.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `permission denied to create extension "vector"` | enable pgvector from the service's console (Extensions) or as `tsdbadmin`, then re-run `make migrate` |
+| `/api/health` shows `timescaledb: false` on Tiger Data | the backend could not reach the DB at startup; capabilities are re-detected on the next request / health check once it is reachable |
+| `ssl` / certificate errors | keep `?sslmode=require` in the URL; `verify-full` needs the CA in the system trust store |
+| `prepared statement "__asyncpg_stmt_…" does not exist` | you are on the pooler URL: set `DB_USE_POOLER=true` or use the direct service URL |
+| `canceling statement due to statement timeout` | raise `DB_STATEMENT_TIMEOUT_MS`, or look for a missing index |
+| connection refused after a long idle period | the service may be paused; resume it in the console, then retry |
 
 ## Tables
 
@@ -156,53 +216,18 @@ WHERE r.product ILIKE 'Novara' AND r.is_approved
 ORDER BY c.embedding <=> :query_vec LIMIT 8;
 ```
 
-## Tiger Data cloud
-
-Verified 2026-09-26 against the team service: PostgreSQL 18.6, TimescaleDB 2.30.1, pgvector 0.8.6
-(pgvectorscale 0.9.0 is also available but unused).
-
-1. Put the service's connection string in the repo-root `.env` as `DATABASE_URL=postgres://tsdbadmin:…@….tsdb.cloud.timescale.com:<port>/tsdb?sslmode=require`.
-   **Never commit it.** `.env` is git-ignored; share the string out-of-band. The app rewrites the URL for
-   asyncpg, turning `sslmode=require` into `ssl=require`.
-2. `make migrate seed`, then `make backend`. `GET /api/health` should report
-   `timescaledb: true, pgvector: true, topic_cagg: true`.
-3. Verify with `psql "<connection string>"`:
-   ```sql
-   SELECT hypertable_name FROM timescaledb_information.hypertables;                        -- interaction_event
-   SELECT view_name, materialized_only FROM timescaledb_information.continuous_aggregates; -- hcp_topic_engagement_daily | f
-   SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'timescaledb');
-   SELECT proc_name, config FROM timescaledb_information.jobs WHERE proc_name LIKE 'policy_%';
-   ```
-
-Findings compared with the local container:
-
-| Topic | Result |
-|---|---|
-| Extensions / privileges | `tsdbadmin` can `CREATE EXTENSION vector`; `timescaledb` is preinstalled. Migrations ran unchanged |
-| SSL | `sslmode=require` works through the URL normalization in `app/config.py` |
-| Connections | `max_connections = 105`. SQLAlchemy's default pool (5 + 10 overflow) per backend process is fine, but don't run many workers × large pools |
-| `statement_timeout` | `0` (none), same as local. Left as is |
-| Time zone | `Etc/UTC`, same as local, so `date_trunc` and `time_bucket` agree |
-| **Latency** | ~31 ms round trip from a dev laptop. An Ambient query runs ~20 statements, so it takes **0.6–1.6 s** against the cloud versus ~0.1 s locally. For the demo, run the backend close to the DB (same cloud region) or accept the delay. Reducing round trips (batching the HCP context reads) is the code-side fix if needed |
-
-Don't point `TEST_DATABASE_URL` at the cloud service. The integration suite drops and recreates its database
-(and refuses any database name without "test").
-
 ## Integration tests
 
 ```bash
-make backend-itest   # default TEST_DATABASE_URL=postgresql+asyncpg://ambient:ambient@localhost:5433/ambient_test
+make backend-itest                                   # default: local compose DB on :5433
+make backend-itest TEST_DATABASE_URL="$DATABASE_URL" # or a Tiger Data service
 ```
 
-- **Fresh database:** the suite drops and recreates the test database, then runs `alembic upgrade head`
-  in a subprocess.
-- **Reseeded per test:** every test reseeds and then runs the demo script through the real `Sql*`
-  repositories with mock AI.
-- **What it covers:** WHATS_NEW, follow-up resolution across requests, SOURCE_OPEN moving the "last looked"
-  anchor, interest-score persistence, the aggregate matching the raw hypertable query, trending/activity,
-  and an HTTP smoke test.
-- **Not run by default:** `make backend-test` deselects these tests, and plain `pytest` skips them when
-  `TEST_DATABASE_URL` is unset.
+`tests/integration/` is skipped unless `TEST_DATABASE_URL` is set, and `make backend-test` excludes it
+(`-m "not integration"`). Each run creates schema `itest_<random>`, runs the real Alembic migrations into
+it via `DB_SEARCH_PATH` (including the hypertable + continuous aggregate when Timescale is present),
+re-seeds before every test, drives the `docs/DEMO_FLOW.md` script through the FastAPI app with mock AI,
+and drops the schema at the end.
 
 ## Seeding
 

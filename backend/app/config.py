@@ -29,6 +29,21 @@ class Settings(BaseSettings):
     # --- Database -----------------------------------------------------------
     database_url: str = "postgresql+asyncpg://ambient:ambient@localhost:5433/ambient"
     db_echo: bool = False
+    # Pool sizing: Tiger Data services cap connections per plan, and the backend + seed + migrate +
+    # teammates all share them. 5 + 5 overflow is plenty for a demo.
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    # Recycle before cloud load balancers / idle timeouts silently drop connections.
+    db_pool_recycle_s: int = 1800
+    db_connect_timeout_s: float = 10.0
+    # Server-side guard so one bad query can't hang a request. 0 disables. Migrations ignore it.
+    db_statement_timeout_ms: int = 15000
+    # Optional schema isolation (e.g. one schema per teammate / per integration-test run on a single
+    # Tiger Data service). Extensions stay in `public`, which is always appended to the path.
+    db_search_path: str | None = None
+    # Set true when DATABASE_URL points at a transaction-mode connection pooler (PgBouncer):
+    # asyncpg's prepared-statement cache is incompatible with it.
+    db_use_pooler: bool = False
 
     # --- Gemini -------------------------------------------------------------
     google_api_key: SecretStr | None = None
@@ -90,12 +105,24 @@ class Settings(BaseSettings):
         query = [(k, v) for k, v in parse_qsl(parts.query) if k not in {"sslmode", "channel_binding"}]
         return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
-    @property
-    def database_connect_args(self) -> dict[str, object]:
+    def database_connect_args(self, *, for_migrations: bool = False) -> dict[str, object]:
+        """asyncpg `connect()` kwargs: SSL (from ?sslmode=), timeouts, search_path, pooler mode."""
         query = dict(parse_qsl(urlsplit(self.database_url).query))
-        if query.get("sslmode") in {"require", "verify-ca", "verify-full"}:
-            return {"ssl": "require"}
-        return {}
+        args: dict[str, object] = {"timeout": self.db_connect_timeout_s}
+        sslmode = query.get("sslmode")
+        if sslmode in {"require", "verify-ca", "verify-full"}:
+            # asyncpg accepts libpq sslmode names; verify-* additionally checks the server cert.
+            args["ssl"] = sslmode
+        server_settings: dict[str, str] = {"application_name": "impiricus-ambient"}
+        timeout_ms = 0 if for_migrations else self.db_statement_timeout_ms
+        server_settings["statement_timeout"] = str(timeout_ms)
+        if self.db_search_path:
+            server_settings["search_path"] = f"{self.db_search_path}, public"
+        args["server_settings"] = server_settings
+        if self.db_use_pooler:
+            args["statement_cache_size"] = 0
+            args["prepared_statement_cache_size"] = 0
+        return args
 
     @property
     def cors_origins(self) -> list[str]:

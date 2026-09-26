@@ -142,31 +142,20 @@ async def seed_history(session: AsyncSession, events: list[dict[str, Any]], reso
     await session.flush()
 
 
-async def seed_database(engine: AsyncEngine, settings: Settings, *, reset: bool) -> int:
-    """Load all seed data in one transaction, then refresh time-series aggregates.
-
-    Returns the number of resources seeded. Used by the CLI and the integration tests.
-    """
+async def seed_database(settings: Settings, *, reset: bool = True) -> dict[str, uuid.UUID]:
+    """Load all seed data in one transaction. Reused by the CLI and the integration tests."""
     seed_dir = settings.data_dir / "seed"
-    async with create_session_factory(engine)() as session, session.begin():
-        if reset:
-            await session.execute(text(f"TRUNCATE {', '.join(TABLES)} CASCADE"))
-        await seed_hcps(session, _load_json(seed_dir / "hcps.json"))
-        resource_ids = await seed_resources(session, settings, seed_dir / "resources")
-        await seed_history(session, _load_json(seed_dir / "history.json"), resource_ids)
-    # TRUNCATE doesn't invalidate continuous aggregates and backfilled history may sit below the
-    # refresh watermark, so rebuild the aggregate explicitly.
-    await refresh_topic_cagg(engine)
-    return len(resource_ids)
-
-
-async def run(reset: bool) -> None:
-    settings = get_settings()
     engine = create_engine(settings)
     try:
         count = await seed_database(engine, settings, reset=reset)
     finally:
         await engine.dispose()
+    return resource_ids
+
+
+async def run(reset: bool) -> None:
+    settings = get_settings()
+    resource_ids = await seed_database(settings, reset=reset)
     mode = "mock" if settings.ai_is_mocked else "gemini"
     print(f"Seeded {count} resources, embeddings={mode}, dim={settings.gemini_embedding_dimension}")
 

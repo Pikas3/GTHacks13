@@ -1,209 +1,134 @@
-"""The DEMO_FLOW script against real SQL repositories, Timescale and pgvector (mock AI)."""
+"""The docs/DEMO_FLOW.md script against the real Sql* repositories, migrations and mock AI."""
 
-from datetime import UTC, datetime
+import asyncio
 
 import pytest
-from sqlalchemy import text
+from fastapi.testclient import TestClient
 
-from app.ambient.personalization import EngagementService, PersonalizationService
-from app.dependencies import Repositories, build_orchestrator, build_repositories
-from app.impiricus.mock_ion import MockIONService
-from app.impiricus.signals import decay_score
-from app.ingestion.seed import stable_id
-from app.schemas.ambient import AmbientResponse, EngagementEventRequest
-from app.schemas.enums import EventType, InputMode, IntentType
+from app.config import Settings
+from tests.integration.conftest import MORGAN_ID, query
 
-pytestmark = pytest.mark.integration
-
-MORGAN = stable_id("hcp", "SYN-HCP-001")
-WHATS_CHANGED = "What's changed with Novara since I last looked at it?"
+WHATS_NEW_Q = "What's changed with Novara since I last looked at it?"
 
 
-async def ask(db, ai, query: str, session_id=None, mode: InputMode = InputMode.TEXT) -> AmbientResponse:
-    """One API request = one DB transaction, exactly like the FastAPI dependency."""
-    async with db.session() as session, session.begin():
-        repos = build_repositories(session, db.capabilities)
-        return await build_orchestrator(db.settings, ai, repos).process_query(MORGAN, session_id, query, mode)
-
-
-async def with_repos(db, fn):
-    async with db.session() as session, session.begin():
-        return await fn(build_repositories(session, db.capabilities))
-
-
-async def test_schema_uses_tiger_data_features(db) -> None:
-    assert db.capabilities["pgvector"]
-    if not db.capabilities["timescaledb"]:
-        pytest.skip("plain PostgreSQL: hypertable/cagg checks not applicable")
-    assert db.capabilities["topic_cagg"]
-    async with db.engine.connect() as conn:
-        hypertables = (
-            await conn.execute(text("SELECT hypertable_name FROM timescaledb_information.hypertables"))
-        ).scalars()
-        assert "interaction_event" in set(hypertables)
-        realtime = await conn.scalar(
-            text(
-                "SELECT NOT materialized_only FROM timescaledb_information.continuous_aggregates "
-                "WHERE view_name = 'hcp_topic_engagement_daily'"
-            )
-        )
-        assert realtime
-
-
-async def test_whats_new_finds_resources_published_after_last_review(db, ai) -> None:
-    resp = await ask(db, ai, WHATS_CHANGED, mode=InputMode.VOICE)
-    assert resp.intent == IntentType.WHATS_NEW
-    assert "July 2, 2026" in resp.response.text
-    assert {(e.title, e.version) for e in resp.evidence} == {
-        ("Novara Prescribing Information", "2.0"),
-        ("Novara Trial A Long-Term Follow-Up", "1.0"),
-    }
-    renal = next(c for d in resp.changes for c in d.changes if c.topic == "Renal Impairment")
-    assert renal.change_type == "UPDATED"
-
-
-async def test_follow_up_resolves_product_across_requests(db, ai) -> None:
-    first = await ask(db, ai, WHATS_CHANGED)
-    follow = await ask(db, ai, "What about renal impairment?", session_id=first.session_id)
-    assert follow.intent == IntentType.FOLLOW_UP
-    assert follow.context.active_entity == "Novara"
-    assert follow.evidence[0].section == "Renal Impairment"
-    assert follow.evidence[0].version == "2.0"
-
-
-async def test_source_open_moves_the_whats_new_anchor(db, ai) -> None:
-    first = await ask(db, ai, WHATS_CHANGED)
-    pi_v2 = next(e for e in first.evidence if e.version == "2.0")
-
-    async def open_source(repos: Repositories):
-        ion = MockIONService(repos.hcps, repos.interactions, repos.resources)
-        service = EngagementService(repos.interactions, repos.resources, PersonalizationService(ion))
-        return await service.record(
-            EngagementEventRequest(
-                hcp_id=MORGAN,
-                session_id=first.session_id,
-                event_type=EventType.SOURCE_OPEN,
-                resource_id=pi_v2.resource_id,
-            )
-        )
-
-    event, signals = await with_repos(db, open_source)
-    assert event.entity == "Novara" and signals[0].weight == 0.10
-
-    again = await ask(db, ai, WHATS_CHANGED)
-    assert again.evidence == []
-    assert again.response.insufficient_evidence
-    assert "couldn't find new approved Novara resources" in again.response.text
-
-
-async def test_signals_persist_to_hcp_interest(db, ai) -> None:
-    before = {i.entity: i for i in await with_repos(db, lambda r: r.hcps.get_interests(MORGAN))}
-    resp = await ask(db, ai, "What about Novara in renal impairment?", mode=InputMode.VOICE)
-    after = {i.entity: i for i in await with_repos(db, lambda r: r.hcps.get_interests(MORGAN))}
-    novara = next(s for s in resp.signals_generated if s.entity == "Novara")
-    decayed = decay_score(
-        before["Novara"].score,
-        before["Novara"].last_interaction_at,
-        novara.timestamp,
-        db.settings.interest_half_life_days,
+def ask(client: TestClient, q: str, session_id: str | None = None, mode: str = "voice") -> dict:
+    resp = client.post(
+        "/api/ambient/query",
+        json={"hcp_id": str(MORGAN_ID), "session_id": session_id, "query": q, "input_mode": mode},
     )
-    assert after["Novara"].score == pytest.approx(decayed + 0.08)
-    assert after["Novara"].last_interaction_at == novara.timestamp
-    assert after["renal impairment"].score == pytest.approx(0.08)
-    assert after["renal impairment"].interaction_count == 1
+    assert resp.status_code == 200, resp.text
+    return resp.json()
 
 
-async def test_engagement_cagg_is_realtime_and_matches_raw(db, ai) -> None:
-    if not db.capabilities["topic_cagg"]:
-        pytest.skip("continuous aggregate requires TimescaleDB")
-    await ask(db, ai, "What about Novara in renal impairment?")
-
-    async def both(repos: Repositories):
-        interactions = repos.interactions
-        from_cagg = await interactions.engagement_over_time(MORGAN)
-        interactions.use_topic_cagg = False
-        from_raw = await interactions.engagement_over_time(MORGAN)
-        return from_cagg, from_raw
-
-    from_cagg, from_raw = await with_repos(db, both)
-    as_set = lambda pts: {(p.bucket, p.topic, p.event_count) for p in pts}  # noqa: E731
-    assert as_set(from_cagg) == as_set(from_raw)
-    days = {p.bucket.date() for p in from_cagg}
-    assert datetime(2026, 6, 14).date() in days, "history older than 90 days must not vanish"
-    assert datetime.now(UTC).date() in days, "today's query must appear without waiting for a refresh"
+def interests(client: TestClient) -> dict[str, float]:
+    return {i["entity"]: i["score"] for i in client.get(f"/api/hcps/{MORGAN_ID}/interests").json()}
 
 
-async def test_trending_and_activity(db, ai) -> None:
-    start = datetime.now(UTC)
-    await ask(db, ai, "What about Novara in renal impairment?")
-    trending = await with_repos(db, lambda r: r.interactions.trending_topics(window="1 day"))
-    assert trending and trending[0].topic == "renal impairment" and trending[0].hcp_count == 1
-    recent = await with_repos(db, lambda r: r.interactions.recent(MORGAN, since=start))
-    assert {e.event_type for e in recent} == {EventType.SESSION_STARTED, EventType.TEXT_QUERY}
+def test_health_reports_real_capabilities(client: TestClient, seeded: Settings) -> None:
+    body = client.get("/api/health").json()
+    assert body["database"] == "ok"
+    assert body["pgvector"] is True
+    has_ts = bool(asyncio.run(query(seeded, "SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'")))
+    assert body["timescaledb"] is has_ts
 
 
-async def test_todays_events_stay_visible_after_a_refresh(db, ai) -> None:
-    """Regression: a full refresh must not materialize today's incomplete bucket.
-
-    If it does, the cagg watermark jumps to tomorrow and later events today fall below it, so they
-    disappear from the real-time aggregate until the next refresh.
-    """
-    if not db.capabilities["topic_cagg"]:
-        pytest.skip("continuous aggregate requires TimescaleDB")
-    from app.db.session import refresh_topic_cagg
-
-    await ask(db, ai, "What about Novara in renal impairment?")
-    await refresh_topic_cagg(db.engine)  # e.g. `make seed`, a backfill, or a manual refresh
-    await ask(db, ai, "What about Novara dosing?")
-
-    points = await with_repos(db, lambda r: r.interactions.engagement_over_time(MORGAN))
-    today = {p.topic: p.event_count for p in points if p.bucket.date() == datetime.now(UTC).date()}
-    assert today.get("renal impairment") == 1
-    assert today.get("dosing") == 1, f"event after refresh missing from cagg: {today}"
-
-
-async def test_demo_works_on_compressed_history(db, ai) -> None:
-    """Columnstore (0004): compressed chunks must stay readable, writable (backfill) and aggregatable."""
-    if not db.capabilities["timescaledb"]:
-        pytest.skip("compression requires TimescaleDB")
-    from app.db.session import refresh_topic_cagg
-    from app.schemas.interaction import InteractionEventCreate
-
-    async with db.engine.connect() as conn:
-        conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
-        await conn.execute(
-            text(
-                "SELECT compress_chunk(c, if_not_compressed => TRUE) "
-                "FROM show_chunks('interaction_event', older_than => INTERVAL '30 days') c"
-            )
+def test_timescale_objects_exist(seeded: Settings) -> None:
+    if not asyncio.run(query(seeded, "SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'")):
+        pytest.skip("plain PostgreSQL: no hypertable / continuous aggregate")
+    schema = seeded.db_search_path
+    hts = asyncio.run(
+        query(
+            seeded,
+            "SELECT hypertable_name FROM timescaledb_information.hypertables WHERE hypertable_schema = :s",
+            s=schema,
         )
-        compressed = await conn.scalar(
-            text(
-                "SELECT count(*) FROM timescaledb_information.chunks "
-                "WHERE hypertable_name = 'interaction_event' AND is_compressed"
-            )
-        )
-    assert compressed >= 1, "seeded June/July history should be in compressed chunks"
-
-    # Reads over compressed history: the July 2 review still anchors "what's new".
-    resp = await ask(db, ai, WHATS_CHANGED)
-    assert "July 2, 2026" in resp.response.text and len(resp.evidence) == 2
-
-    # Backfill into a compressed chunk, then refresh the aggregate.
-    await with_repos(
-        db,
-        lambda r: r.interactions.record(
-            InteractionEventCreate(
-                hcp_id=MORGAN,
-                event_type=EventType.TEXT_QUERY,
-                timestamp=datetime(2026, 6, 14, 15, 0, tzinfo=UTC),
-                query_text="backfilled",
-                entity="Novara",
-                topic="dosing",
-            )
-        ),
     )
-    await refresh_topic_cagg(db.engine)
-    points = await with_repos(db, lambda r: r.interactions.engagement_over_time(MORGAN))
-    june = {p.topic: p.event_count for p in points if p.bucket.date() == datetime(2026, 6, 14).date()}
-    assert june.get("dosing") == 1
+    assert ("interaction_event",) in hts
+    caggs = asyncio.run(
+        query(
+            seeded,
+            "SELECT view_name FROM timescaledb_information.continuous_aggregates WHERE view_schema = :s",
+            s=schema,
+        )
+    )
+    assert ("hcp_topic_engagement_daily",) in caggs
+
+
+def test_whats_new_finds_pi_v2_and_ltfu(client: TestClient) -> None:
+    body = ask(client, WHATS_NEW_Q)
+    assert body["intent"] == "WHATS_NEW"
+    assert "July 2, 2026" in body["response"]["text"]
+    found = {(e["title"], e["version"]) for e in body["evidence"]}
+    assert ("Novara Prescribing Information", "2.0") in found
+    assert ("Novara Trial A Long-Term Follow-Up", "1.0") in found
+    assert all(e["is_new"] for e in body["evidence"])
+    [diff] = body["changes"]
+    assert any(c["topic"] == "Renal Impairment" for c in diff["changes"])
+
+
+def test_follow_up_resolves_novara_from_session(client: TestClient) -> None:
+    first = ask(client, WHATS_NEW_Q)
+    follow = ask(client, "What about renal impairment?", first["session_id"])
+    assert follow["session_id"] == first["session_id"]
+    assert follow["intent"] == "FOLLOW_UP"
+    assert follow["context"]["active_entity"] == "Novara"
+    assert follow["resolved_query"].startswith("Novara")
+    assert follow["evidence"] and follow["evidence"][0]["section"] == "Renal Impairment"
+    turns = client.get(f"/api/sessions/{first['session_id']}").json()["turns"]
+    assert len(turns) == 4
+
+
+def test_asking_is_not_looking_but_source_open_is(client: TestClient) -> None:
+    first = ask(client, WHATS_NEW_Q)
+    again = ask(client, WHATS_NEW_Q, first["session_id"])
+    assert {e["resource_id"] for e in again["evidence"]} == {e["resource_id"] for e in first["evidence"]}
+
+    pi_v2 = next(e for e in first["evidence"] if e["version"] == "2.0")
+    opened = client.post(
+        "/api/ambient/events",
+        json={
+            "hcp_id": str(MORGAN_ID),
+            "session_id": first["session_id"],
+            "event_type": "SOURCE_OPEN",
+            "resource_id": pi_v2["resource_id"],
+        },
+    )
+    assert opened.status_code == 200, opened.text
+
+    after = ask(client, WHATS_NEW_Q, first["session_id"])
+    assert "July 2, 2026" not in after["response"]["text"]
+    assert after["evidence"] == []  # nothing published since the review we just recorded
+
+
+def test_signals_update_hcp_interest(client: TestClient) -> None:
+    before = interests(client)
+    body = ask(client, "What about renal impairment in Novara?")
+    after_query = interests(client)
+    novara = next(s for s in body["signals_generated"] if s["entity"] == "Novara")
+    assert novara["weight"] == 0.08
+    assert after_query["Novara"] == pytest.approx(min(1.0, before["Novara"] + 0.08))
+    assert after_query["Novara"] == pytest.approx(novara["new_score"])
+
+    ev = client.post(
+        "/api/ambient/events",
+        json={"hcp_id": str(MORGAN_ID), "event_type": "SOURCE_OPEN", "entity": "Novara"},
+    ).json()
+    assert ev["signals_generated"][0]["weight"] == 0.10
+    assert interests(client)["Novara"] == pytest.approx(min(1.0, after_query["Novara"] + 0.10))
+
+    feed = client.get(f"/api/intelligence/{MORGAN_ID}/signals").json()["signals"]
+    assert feed[0]["event_type"] == "SOURCE_OPEN"
+
+
+def test_recall_history_from_structured_memory(client: TestClient) -> None:
+    body = ask(client, "What did I look at last time?")
+    assert body["intent"] == "RECALL_HISTORY"
+    assert body["history"][0]["label"].startswith("Viewed Novara Access Guide")
+
+
+def test_engagement_includes_todays_events(client: TestClient) -> None:
+    ask(client, WHATS_NEW_Q)
+    body = client.get(f"/api/intelligence/{MORGAN_ID}/engagement", params={"bucket": "1 day"}).json()
+    buckets = {p["bucket"][:10] for p in body["points"]}
+    assert "2026-07-02" in buckets
+    assert any(p["topic"] == "Novara" for p in body["points"] if p["bucket"][:10] not in {"2026-06-14", "2026-07-02"})

@@ -10,12 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.config import Settings
 
 
-def create_engine(settings: Settings) -> AsyncEngine:
+def create_engine(settings: Settings, *, for_migrations: bool = False) -> AsyncEngine:
+    """Engine tuned for both local compose and Tiger Data cloud (SSL, small pool, recycling,
+    server-side statement_timeout). `for_migrations` disables the statement timeout."""
     return create_async_engine(
         settings.async_database_url,
         echo=settings.db_echo,
         pool_pre_ping=True,
-        connect_args=settings.database_connect_args,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_recycle=settings.db_pool_recycle_s,
+        connect_args=settings.database_connect_args(for_migrations=for_migrations),
     )
 
 
