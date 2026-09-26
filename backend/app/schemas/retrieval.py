@@ -25,7 +25,9 @@ class RetrievalPlan(BaseModel):
 
 class ScoreBreakdown(BaseModel):
     semantic: float = 0.0
+    lexical: float = 0.0
     entity_match: float = 0.0
+    preference: float = 0.0
     recency: float = 0.0
     interest: float = 0.0
     previously_viewed: float = 0.0

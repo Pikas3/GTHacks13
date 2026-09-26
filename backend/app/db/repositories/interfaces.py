@@ -43,6 +43,16 @@ class ResourceRepository(Protocol):
         approved_only: bool = True,
         exclude_superseded: bool = True,
     ) -> list[ChunkHit]: ...
+    async def lexical_search(
+        self,
+        query: str,
+        *,
+        limit: int,
+        product: str | None = None,
+        published_after: datetime | None = None,
+        approved_only: bool = True,
+        exclude_superseded: bool = True,
+    ) -> list[ChunkHit]: ...
 
 
 class InteractionRepository(Protocol):

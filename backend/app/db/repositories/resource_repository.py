@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -100,4 +100,53 @@ class SqlResourceRepository:
                 similarity=1.0 - float(dist),
             )
             for chunk, resource, dist in rows
+        ]
+
+    async def lexical_search(
+        self,
+        query: str,
+        *,
+        limit: int,
+        product: str | None = None,
+        published_after: datetime | None = None,
+        approved_only: bool = True,
+        exclude_superseded: bool = True,
+    ) -> list[ChunkHit]:
+        """Postgres full-text search over chunk section+text (websearch_to_tsquery + ts_rank)."""
+        q = (query or "").strip()
+        if not q:
+            return []
+        document = func.to_tsvector(
+            "english",
+            func.concat(func.coalesce(ResourceChunk.section, ""), " ", ResourceChunk.text),
+        )
+        tsq = func.websearch_to_tsquery("english", q)
+        rank = func.ts_rank(document, tsq).label("rank")
+        stmt = (
+            select(ResourceChunk, Resource, rank)
+            .join(Resource, Resource.id == ResourceChunk.resource_id)
+            .where(document.op("@@")(tsq))
+            .order_by(rank.desc())
+            .limit(limit)
+        )
+        if approved_only:
+            stmt = stmt.where(Resource.is_approved.is_(True))
+        if product:
+            stmt = stmt.where(Resource.product.ilike(product))
+        if published_after is not None:
+            stmt = stmt.where(Resource.published_at > published_after)
+        if exclude_superseded:
+            newer = aliased(Resource)
+            stmt = stmt.where(~select(newer.id).where(newer.supersedes_resource_id == Resource.id).exists())
+        rows = (await self.session.execute(stmt)).all()
+        if not rows:
+            return []
+        top = float(rows[0][2]) or 1.0
+        return [
+            ChunkHit(
+                chunk=ResourceChunkRead.model_validate(chunk),
+                resource=to_resource_read(resource),
+                lexical_score=float(rank_val) / top,
+            )
+            for chunk, resource, rank_val in rows
         ]
