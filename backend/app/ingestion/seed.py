@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.db.models import HCP, HCPInterest, HCPPreference, InteractionEvent, Resource, ResourceChunk
@@ -146,8 +146,16 @@ async def seed_database(settings: Settings, *, reset: bool = True) -> dict[str, 
     """Load all seed data in one transaction. Reused by the CLI and the integration tests."""
     seed_dir = settings.data_dir / "seed"
     engine = create_engine(settings)
+    factory = create_session_factory(engine)
     try:
-        count = await seed_database(engine, settings, reset=reset)
+        async with factory() as session, session.begin():
+            if reset:
+                await session.execute(text(f"TRUNCATE {', '.join(TABLES)} CASCADE"))
+            await seed_hcps(session, _load_json(seed_dir / "hcps.json"))
+            resource_ids = await seed_resources(session, settings, seed_dir / "resources")
+            await seed_history(session, _load_json(seed_dir / "history.json"), resource_ids)
+        # TRUNCATE doesn't invalidate continuous aggregates; rebuild explicitly.
+        await refresh_topic_cagg(engine)
     finally:
         await engine.dispose()
     return resource_ids
@@ -157,7 +165,7 @@ async def run(reset: bool) -> None:
     settings = get_settings()
     resource_ids = await seed_database(settings, reset=reset)
     mode = "mock" if settings.ai_is_mocked else "gemini"
-    print(f"Seeded {count} resources, embeddings={mode}, dim={settings.gemini_embedding_dimension}")
+    print(f"Seeded {len(resource_ids)} resources, embeddings={mode}, dim={settings.gemini_embedding_dimension}")
 
 
 def main() -> None:
