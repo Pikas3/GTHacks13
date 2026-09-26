@@ -5,6 +5,8 @@ builds against **interfaces** (Protocols / HTTP contracts), not against other pe
 
 Find your work with: `grep -rn "TODO(<tag>)" backend frontend`
 
+Ready-to-paste prompts for coding agents, one per workstream: [docs/agent-prompts/](agent-prompts/README.md).
+
 ## A — Frontend / UX (`TODO(frontend)`)
 
 **Owns:** `frontend/app/`, `frontend/components/`, `frontend/hooks/useConversation.ts`, `useHCP.ts`,

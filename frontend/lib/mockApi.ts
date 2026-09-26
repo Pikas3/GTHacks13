@@ -7,6 +7,7 @@ import type { AmbientApi } from "@/lib/api";
 import type {
   AmbientResponse,
   EngagementSignal,
+  EventType,
   EvidenceReference,
   HCPDetail,
   IntentType,
@@ -91,7 +92,7 @@ export function createMockApi(): AmbientApi {
   }
 
   return {
-    health: () => delay({ status: "ok", database: "mock", timescaledb: false, pgvector: false, ai_mode: "mock-frontend", voice_mode: "mock", gemini_model: "n/a" }),
+    health: () => delay({ status: "ok", database: "mock", timescaledb: false, pgvector: false, topic_cagg: false, ai_mode: "mock-frontend", voice_mode: "mock", gemini_model: "n/a" }),
     listHcps: () => delay(hcps.map((h) => ({ id: h.id, external_id: h.external_id, name: h.name, specialty: h.specialty, organization: h.organization, region: h.region }))),
     getHcp: (id) => delay(structuredClone(find(id))),
     getTimeline: () => delay([...timeline]),
@@ -133,7 +134,7 @@ export function createMockApi(): AmbientApi {
       const res: AmbientResponse = {
         session_id: body.session_id ?? crypto.randomUUID(),
         query: body.query,
-        resolved_query: body.query,
+        resolved_query: intent === "FOLLOW_UP" && activeEntity ? `${activeEntity}: ${body.query}` : body.query,
         intent,
         entities: activeEntity ? [{ name: activeEntity, type: "PRODUCT" }] : [],
         response: { text, speech_text: text.replace(/\s*\[E\d+\]/g, ""), insufficient_evidence: ev.length === 0 && intent !== "RECALL_HISTORY" },
@@ -148,10 +149,43 @@ export function createMockApi(): AmbientApi {
       return delay(res, 700);
     },
     recordEvent: (body) => delay({ signals_generated: body.entity ? [bump(body.hcp_id, body.entity, 0.1, null)] : [] }),
-    transcribe: () => delay({ text: "What's changed with Novara since I last looked at it?", confidence: 1, language: "en", provider: "mock-frontend" }, 500),
+    transcribe: (_audio, opts) =>
+      delay(
+        {
+          text: opts?.mockText ?? "What's changed with Novara since I last looked at it?",
+          confidence: 1,
+          language: "en",
+          provider: "mock-frontend",
+        },
+        500,
+      ),
     synthesize: () => delay({ url: null, provider: "mock-frontend", isPlaceholder: true }),
+    createSpeech: () =>
+      delay({
+        speech_id: "mock-speech",
+        provider: "mock-frontend",
+        media_type: "audio/wav",
+        is_placeholder: true,
+        expires_in_s: 120,
+      }),
+    streamSpeech: async () => new Response(new Uint8Array([0]), { headers: { "x-tts-placeholder": "true", "x-tts-provider": "mock-frontend" } }),
     getSignals: (id) => delay({ hcp_id: id, signals: [...signals], affinities: [...find(id).interests] }),
     getRecommendations: (id) => delay({ hcp_id: id, recommendations: [{ resource: LTFU, reason: "Not yet viewed; Novara affinity 0.64.", score: 0.64 }] }),
+    getActivity: (id, since) => {
+      const from = since ?? new Date(Date.now() - 7 * 864e5).toISOString();
+      const events = timeline.filter((t) => t.timestamp > from);
+      const by_type: Partial<Record<EventType, number>> = {};
+      for (const e of events) by_type[e.event_type] = (by_type[e.event_type] ?? 0) + 1;
+      return delay({ hcp_id: id, since: from, event_count: events.length, by_type, events });
+    },
+    getTrendingTopics: (window = "7 days") =>
+      delay({
+        window,
+        topics: [
+          { topic: "Novara", event_count: 4, hcp_count: 1, last_seen: new Date().toISOString() },
+          { topic: "renal impairment", event_count: 2, hcp_count: 2, last_seen: new Date().toISOString() },
+        ],
+      }),
     getEngagement: (id) => delay({
       hcp_id: id, bucket: "1 day",
       points: [

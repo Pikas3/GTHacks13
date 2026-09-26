@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from app.ai.embeddings import MockEmbeddingProvider
@@ -20,6 +22,8 @@ from tests.fakes import (
 )
 
 MORGAN_ID = stable_id("hcp", "SYN-HCP-001")
+# Fixed "now" for decay math: the day the demo was built.
+NOW = datetime(2026, 9, 26, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -49,7 +53,7 @@ def conversations() -> FakeConversationRepository:
 
 @pytest.fixture
 def ion(hcps, interactions, resources) -> MockIONService:
-    return MockIONService(hcps, interactions, resources)
+    return MockIONService(hcps, interactions, resources, clock=lambda: NOW)
 
 
 @pytest.fixture

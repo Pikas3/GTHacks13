@@ -101,6 +101,7 @@ frontend reads only `NEXT_PUBLIC_*` via `frontend/lib/env.ts`. See [`.env.exampl
 | `ELEVENLABS_TTS_MODEL` / `ELEVENLABS_STT_MODEL` | `eleven_flash_v2_5` / `scribe_v1` | Voice models |
 | `USE_MOCK_AI` / `USE_MOCK_VOICE` | `true` | Mock-first switches |
 | `MOCK_STT_TEXT` | demo question | What the mock "hears" |
+| `INTEREST_HALF_LIFE_DAYS` | `90` | Interest-score decay half-life (`0` = off) |
 | `FRONTEND_URL` / `BACKEND_URL` | `:3000` / `:8000` | CORS + links |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | Frontend → backend |
 | `NEXT_PUBLIC_USE_MOCK_API` | `false` | Frontend-only fixtures |
@@ -111,6 +112,8 @@ frontend reads only `NEXT_PUBLIC_*` via `frontend/lib/env.ts`. See [`.env.exampl
 make test           # everything below
 make backend-test   # pytest: unit tests, no DB or API keys needed (in-memory fakes built from data/seed)
 make backend-itest  # integration: real migrations + Sql repositories in a throwaway schema (TEST_DATABASE_URL)
+make backend-test   # pytest unit tests, no DB or API keys needed (in-memory fakes built from data/seed)
+make backend-itest  # integration tests against a real Timescale + pgvector DB (recreates ambient_test)
 make frontend-check # eslint + tsc --noEmit + vitest
 ```
 

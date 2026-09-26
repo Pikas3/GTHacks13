@@ -61,6 +61,9 @@ backend-test: ## Run backend unit tests (no DB or API keys required)
 TEST_DATABASE_URL ?= postgresql+asyncpg://ambient:ambient@localhost:5433/ambient
 backend-itest: ## Run integration tests against a real DB (TEST_DATABASE_URL, default local compose)
 	cd backend && TEST_DATABASE_URL='$(TEST_DATABASE_URL)' $(PY) -m pytest -m integration tests/integration -v
+TEST_DATABASE_URL ?= postgresql+asyncpg://ambient:ambient@localhost:5433/ambient_test
+backend-itest: ## Run integration tests against a real DB (recreates TEST_DATABASE_URL; name must contain "test")
+	cd backend && TEST_DATABASE_URL=$(TEST_DATABASE_URL) $(PY) -m pytest -m integration tests/integration -v
 
 frontend-check: ## Lint, typecheck and unit-test the frontend
 	cd frontend && npm run lint && npm run typecheck && npm run test

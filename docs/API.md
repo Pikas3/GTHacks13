@@ -25,11 +25,24 @@ Every non-2xx response has the same shape:
 
 Each response has an `x-request-id` header, and the same ID appears in the backend logs.
 
+## Changelog
+
+- **2026-09-26 (feature/tigerdata):**
+  - Added `GET /intelligence/{hcp_id}/activity` and `GET /intelligence/topics/trending`.
+  - Added `topic_cagg` to `/health`.
+  - `engagement` no longer counts `SESSION_STARTED` as a "general" topic.
+  - Frontend `lib/types.ts`, `lib/api.ts` (`getActivity`, `getTrendingTopics`) and `lib/mockApi.ts` are
+    updated to match. No UI uses them yet (member A).
+  - Interest scores returned by `/hcps/{id}`, `/hcps/{id}/interests` and `/intelligence/{id}/signals` are
+    now **time-decayed** (`INTEREST_HALF_LIFE_DAYS`, default 90). Shapes are unchanged; values are lower
+    for stale interests.
+  - `AmbientResponse.timings_ms` now includes `ambient.total`. It was previously always missing.
+
 ## Endpoints
 
 | Method | Path | Returns |
 |--------|------|---------|
-| GET | `/health` | `{status, database, timescaledb, pgvector, ai_mode, voice_mode, gemini_model, …}` (never errors) |
+| GET | `/health` | `{status, database, timescaledb, pgvector, topic_cagg, ai_mode, voice_mode, gemini_model, …}` (never errors) |
 | GET | `/hcps` | `HCP[]` |
 | GET | `/hcps/{hcp_id}` | `HCPDetail` (+ preferences, interests) |
 | GET | `/hcps/{hcp_id}/timeline?limit=30` | `TimelineEntry[]` newest first |
@@ -40,11 +53,15 @@ Each response has an `x-request-id` header, and the same ID appears in the backe
 | GET | `/sessions/{session_id}` | `SessionDetail` (+ turns, context) |
 | POST | `/ambient/query` | `AmbientResponse` (below) |
 | POST | `/ambient/events` | `{event, signals_generated}`: client-reported engagement, e.g. `SOURCE_OPEN` |
-| POST | `/audio/transcribe` (multipart `audio`) | `{text, confidence, language, provider}` |
+| POST | `/audio/transcribe` (multipart `audio`, optional `mock_text`) | `{text, confidence, language, provider}` |
 | POST | `/audio/synthesize` `{text}` | audio bytes (`audio/mpeg` real, `audio/wav` mock); headers `X-TTS-Provider`, `X-TTS-Placeholder` |
+| POST | `/audio/speech` `{text}` | `{speech_id, provider, media_type, is_placeholder, expires_in_s}` (201) — text never in a URL |
+| GET | `/audio/speech/{speech_id}` | streaming audio bytes (same TTS headers); short-lived (~120s) |
 | GET | `/intelligence/{hcp_id}/signals?limit=20` | `{hcp_id, signals: EngagementSignal[], affinities: HCPInterest[]}` |
 | GET | `/intelligence/{hcp_id}/recommendations` | `{hcp_id, recommendations: [{resource, reason, score}]}` |
-| GET | `/intelligence/{hcp_id}/engagement?bucket=1 day` | `{points: [{bucket, topic, event_count}], top_entities}` |
+| GET | `/intelligence/{hcp_id}/engagement?bucket=1 day` | `{points: [{bucket, topic, event_count}], top_entities}`. Daily/weekly come from the real-time continuous aggregate; `SESSION_STARTED` excluded |
+| GET | `/intelligence/{hcp_id}/activity?since=<ISO>` | `ActivitySince` `{hcp_id, since, event_count, by_type: {EVENT_TYPE: n}, events: TimelineEntry[]}`. `since` defaults to 7 days ago; naive timestamps are treated as UTC |
+| GET | `/intelligence/topics/trending?window=7 days&limit=10` | `TrendingTopics` `{window, topics: [{topic, event_count, hcp_count, last_seen}]}` across all HCPs. `window` ∈ `1 day`, `7 days`, `30 days`, `90 days` (other values → 422) |
 
 ## POST /ambient/query
 
@@ -98,6 +115,40 @@ Response (abridged, real mock-mode output):
 
 `text` may contain `[E#]` markers that refer to `evidence[].id`. `speech_text` is shorter and has no markers.
 `history` is filled for `RECALL_HISTORY`. `changes` is filled for `WHATS_NEW` when a new version supersedes an old one.
+
+## Audio notes
+
+### POST `/audio/transcribe`
+
+- Multipart field `audio` (≤ 10 MB). Browser MIME types are normalized server-side
+  (`audio/webm;codecs=opus` → `audio/webm`, Safari `audio/mp4`, Firefox `audio/ogg`).
+- Empty / too-short recordings → `AUDIO_TRANSCRIPTION_FAILED` (422). Suggest the text box in the UI.
+- **`mock_text` (form field, mock STT only):** when `voice_mode` is mock, optional `mock_text` overrides
+  `MOCK_STT_TEXT` so demos can be rehearsed without an ElevenLabs key. Ignored for real STT.
+
+### POST `/audio/synthesize`
+
+Buffered MP3 (ElevenLabs) or silent WAV placeholder (mock). Display text is normalized for speech
+(strips `[E#]`, expands `PI` → "prescribing information", `v2.0` → "version 2", etc.) before TTS.
+
+### Streaming TTS (preferred for spoken answers)
+
+```
+POST /api/audio/speech  { "text": "..." }  →  { "speech_id": "…" }
+GET  /api/audio/speech/{speech_id}         →  audio/mpeg stream
+```
+
+Keeps answer text out of query strings. Non-streaming `/synthesize` remains the Safari/MSE fallback.
+Clips expire after ~120 seconds and are never persisted to disk.
+
+## Proposed (voice)
+
+| Change | Status |
+|--------|--------|
+| Optional `mock_text` on transcribe (mock only) | **Landed** |
+| `POST /audio/speech` + `GET /audio/speech/{id}` streaming | **Landed** (additive) |
+| `SpeechToTextProvider` / buffered `synthesize` unchanged | stable |
+| Optional `synthesize_stream` on TTS providers | **Landed** (additive Protocol) |
 
 ## curl cheatsheet
 

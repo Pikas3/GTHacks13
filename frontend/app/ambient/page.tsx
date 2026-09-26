@@ -4,6 +4,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import { useState } from "react";
 
 import { AmbientResponse } from "@/components/ambient/AmbientResponse";
+import { CollapsibleSection } from "@/components/ambient/CollapsibleSection";
 import { ConversationContext } from "@/components/ambient/ConversationContext";
 import { TextQueryInput } from "@/components/ambient/TextQueryInput";
 import { TranscriptPanel } from "@/components/ambient/TranscriptPanel";
@@ -16,8 +17,10 @@ import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useConversation } from "@/hooks/useConversation";
 import { useHCP } from "@/hooks/useHCP";
+import { ERROR_MESSAGE } from "@/lib/constants";
 import { isBusy } from "@/lib/orbMachine";
 import type { EvidenceReference } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export default function AmbientPage() {
   const hcp = useHCP();
@@ -27,6 +30,7 @@ export default function AmbientPage() {
 
   const evidence = convo.response?.evidence ?? [];
   const busy = isBusy(convo.state);
+  const pageError = hcp.error ?? convo.error;
 
   const cite = (id: string) => {
     setHighlighted(id);
@@ -38,7 +42,7 @@ export default function AmbientPage() {
   };
 
   return (
-    <main className="flex min-h-dvh flex-col">
+    <main className="flex min-h-dvh flex-col overflow-x-hidden">
       <AppHeader>
         <div className="flex items-center gap-2">
           <Button
@@ -53,12 +57,16 @@ export default function AmbientPage() {
         </div>
       </AppHeader>
 
-      <div className="grid flex-1 gap-6 px-4 pb-6 sm:px-8 lg:grid-cols-[1fr_340px]">
-        <section className="flex flex-col items-center gap-6 pt-4">
-          <ErrorBanner error={hcp.error ?? convo.error} className="w-full max-w-2xl" />
+      <div className="grid flex-1 gap-6 px-4 pb-6 sm:grid-cols-[minmax(0,1fr)_300px] sm:px-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8">
+        <section className="flex min-w-0 flex-col items-center gap-6 pt-4">
+          <ErrorBanner error={pageError} className="w-full max-w-2xl" />
           <VoiceOrb
             state={convo.state}
             disabled={!hcp.selectedId}
+            level={convo.level}
+            audioLevel={convo.audioLevel}
+            hasLiveAudio={convo.hasLiveAudio}
+            errorMessage={pageError ? (ERROR_MESSAGE[pageError.code] ?? pageError.message) : null}
             onPressStart={() => void convo.pressStart()}
             onPressEnd={() => void convo.pressEnd()}
             onStopSpeaking={convo.stopSpeaking}
@@ -68,20 +76,24 @@ export default function AmbientPage() {
           <TextQueryInput onSubmit={(q) => void convo.submitText(q)} disabled={busy || !hcp.selectedId} />
         </section>
 
-        <aside className="flex flex-col gap-3">
-          <ConversationContext context={convo.response?.context ?? null} timeline={hcp.timeline} />
-          <InteractionTimeline entries={hcp.timeline} limit={6} />
-        </aside>
+        <CollapsibleSection title="Context" className="min-w-0 sm:pt-4">
+          <aside className="flex flex-col gap-3">
+            <ConversationContext context={convo.response?.context ?? null} timeline={hcp.timeline} />
+            <InteractionTimeline entries={hcp.timeline} limit={6} />
+          </aside>
+        </CollapsibleSection>
       </div>
 
-      <div className="border-t border-border/60 px-4 pt-4 sm:px-8">
-        <EvidenceDrawer
-          evidence={evidence}
-          highlightedId={highlighted}
-          openSource={openSource}
-          onViewSource={viewSource}
-          onCloseSource={() => setOpenSource(null)}
-        />
+      <div className={cn("border-t border-border/60 px-4 pt-4 lg:px-8", evidence.length === 0 && !openSource && "max-sm:hidden")}>
+        <CollapsibleSection title="Evidence">
+          <EvidenceDrawer
+            evidence={evidence}
+            highlightedId={highlighted}
+            openSource={openSource}
+            onViewSource={viewSource}
+            onCloseSource={() => setOpenSource(null)}
+          />
+        </CollapsibleSection>
       </div>
     </main>
   );

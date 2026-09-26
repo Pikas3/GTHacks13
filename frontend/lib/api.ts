@@ -5,6 +5,7 @@
 import { env } from "@/lib/env";
 import { createMockApi } from "@/lib/mockApi";
 import type {
+  ActivitySince,
   AmbientRequest,
   AmbientResponse,
   ApiErrorCode,
@@ -19,9 +20,13 @@ import type {
   IntelligenceSignals,
   Resource,
   ResourceDetail,
+  SpeechHandle,
   SynthesizedSpeech,
   TimelineEntry,
   TranscriptionResult,
+  TrendingTopics,
+  TrendingWindow,
+  ISODateTime,
   UUID,
 } from "@/lib/types";
 
@@ -48,11 +53,17 @@ export interface AmbientApi {
   createSession(hcpId: UUID): Promise<{ id: UUID }>;
   query(body: AmbientRequest): Promise<AmbientResponse>;
   recordEvent(body: EngagementEventRequest): Promise<{ signals_generated: EngagementSignal[] }>;
-  transcribe(audio: Blob): Promise<TranscriptionResult>;
+  transcribe(audio: Blob, opts?: { mockText?: string }): Promise<TranscriptionResult>;
   synthesize(text: string): Promise<SynthesizedSpeech>;
+  /** Create a short-lived speech clip; stream/play via `streamSpeech`. */
+  createSpeech(text: string): Promise<SpeechHandle>;
+  /** GET stream for a speech_id (raw Response — caller plays bytes). */
+  streamSpeech(speechId: string): Promise<Response>;
   getSignals(hcpId: UUID, limit?: number): Promise<IntelligenceSignals>;
   getRecommendations(hcpId: UUID): Promise<IntelligenceRecommendations>;
   getEngagement(hcpId: UUID, bucket?: "1 hour" | "1 day" | "1 week"): Promise<EngagementSeries>;
+  getActivity(hcpId: UUID, since?: ISODateTime): Promise<ActivitySince>;
+  getTrendingTopics(window?: TrendingWindow, limit?: number): Promise<TrendingTopics>;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -103,10 +114,13 @@ export const httpApi: AmbientApi = {
   createSession: (hcpId) => request("/sessions", json({ hcp_id: hcpId })),
   query: (body) => request("/ambient/query", json(body)),
   recordEvent: (body) => request("/ambient/events", json(body)),
-  async transcribe(audio) {
+  async transcribe(audio, opts) {
     const form = new FormData();
-    const ext = audio.type.includes("mp4") ? "mp4" : audio.type.includes("ogg") ? "ogg" : "webm";
-    form.append("audio", audio, `recording.${ext}`);
+    const rawType = (audio.type || "audio/webm").split(";", 1)[0]!.trim().toLowerCase();
+    const ext = rawType.includes("mp4") || rawType.includes("m4a") ? "mp4" : rawType.includes("ogg") ? "ogg" : rawType.includes("wav") ? "wav" : "webm";
+    const contentType = rawType.startsWith("audio/") ? rawType : `audio/${ext}`;
+    form.append("audio", new Blob([audio], { type: contentType }), `recording.${ext}`);
+    if (opts?.mockText) form.append("mock_text", opts.mockText);
     return request("/audio/transcribe", { method: "POST", body: form });
   },
   async synthesize(text) {
@@ -116,10 +130,16 @@ export const httpApi: AmbientApi = {
     if (isPlaceholder) return { url: null, provider, isPlaceholder };
     return { url: URL.createObjectURL(await res.blob()), provider, isPlaceholder };
   },
+  createSpeech: (text) => request("/audio/speech", json({ text })),
+  streamSpeech: (speechId) => rawRequest(`/audio/speech/${speechId}`),
   getSignals: (id, limit = 20) => request(`/intelligence/${id}/signals?limit=${limit}`),
   getRecommendations: (id) => request(`/intelligence/${id}/recommendations`),
   getEngagement: (id, bucket = "1 day") =>
     request(`/intelligence/${id}/engagement?bucket=${encodeURIComponent(bucket)}`),
+  getActivity: (id, since) =>
+    request(`/intelligence/${id}/activity${since ? `?since=${encodeURIComponent(since)}` : ""}`),
+  getTrendingTopics: (window = "7 days", limit = 10) =>
+    request(`/intelligence/topics/trending?window=${encodeURIComponent(window)}&limit=${limit}`),
 };
 
 /** The API implementation used by the app (HTTP by default, fixtures when NEXT_PUBLIC_USE_MOCK_API=true). */

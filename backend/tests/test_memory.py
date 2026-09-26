@@ -27,3 +27,22 @@ async def test_viewed_resources_and_timeline(interactions, resources) -> None:
     timeline = await memory.get_timeline(MORGAN_ID)
     assert timeline[0].label.startswith("Viewed Novara Access Guide")
     assert any(t.label == 'Asked "long-term outcomes"' for t in timeline)
+
+
+async def test_activity_since_counts_by_type(interactions, resources) -> None:
+    from datetime import UTC, datetime
+
+    memory = MemoryService(interactions, resources)
+    activity = await memory.get_activity_since(MORGAN_ID, datetime(2026, 6, 20, tzinfo=UTC))
+    assert activity.event_count == 1
+    assert {k.value: v for k, v in activity.by_type.items()} == {"RESOURCE_VIEW": 1}
+    assert activity.events[0].label.startswith("Viewed Novara Access Guide")
+
+
+async def test_trending_topics_span_hcps(orchestrator, interactions) -> None:
+    from tests.conftest import MORGAN_ID as morgan
+
+    await orchestrator.process_query(morgan, None, "What about Novara renal impairment?")
+    trending = await interactions.trending_topics(window="1 day")
+    assert trending and trending[0].topic in {"Novara", "renal impairment"}
+    assert all(t.hcp_count >= 1 for t in trending)

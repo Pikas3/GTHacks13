@@ -6,19 +6,30 @@ import { Fragment } from "react";
 
 import { CitationBadge } from "@/components/evidence/CitationBadge";
 import { Badge } from "@/components/ui/badge";
+import { splitSentences } from "@/lib/sentences";
 import type { AmbientResponse as AmbientResponseT } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Renders answer text, turning [E1] markers into citation badges. */
-function AnswerText({ text, onCite }: { text: string; onCite: (id: string) => void }) {
-  const parts = text.split(/(\[E\d+\])/g);
+function AnswerText({ text, onCite, animate }: { text: string; onCite: (id: string) => void; animate: boolean }) {
+  const sentences = splitSentences(text);
   return (
-    <p className="text-base leading-relaxed text-foreground/90">
-      {parts.map((part, i) => {
-        const m = /^\[(E\d+)\]$/.exec(part);
-        return m ? <CitationBadge key={i} id={m[1]!} onClick={onCite} /> : <Fragment key={i}>{part}</Fragment>;
-      })}
-    </p>
+    <div className="space-y-2">
+      {sentences.map((sentence, si) => (
+        <motion.p
+          key={`${si}-${sentence.slice(0, 24)}`}
+          className="text-base leading-relaxed text-foreground/90"
+          initial={animate ? { opacity: 0, y: 8 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: animate ? si * 0.12 : 0 }}
+        >
+          {sentence.split(/(\[E\d+\])/g).map((part, i) => {
+            const m = /^\[(E\d+)\]$/.exec(part);
+            return m ? <CitationBadge key={i} id={m[1]!} onClick={onCite} /> : <Fragment key={i}>{part}</Fragment>;
+          })}
+        </motion.p>
+      ))}
+    </div>
   );
 }
 
@@ -30,6 +41,7 @@ export interface AmbientResponseProps {
 }
 
 export function AmbientResponse({ response, onCite, onFollowUp, disabled }: AmbientResponseProps) {
+  const insufficient = Boolean(response?.response.insufficient_evidence);
   return (
     <AnimatePresence mode="wait">
       {response && (
@@ -40,15 +52,15 @@ export function AmbientResponse({ response, onCite, onFollowUp, disabled }: Ambi
           exit={{ opacity: 0, y: -8 }}
           className={cn(
             "w-full max-w-2xl rounded-2xl border bg-card/60 p-5 backdrop-blur",
-            response.response.insufficient_evidence && "border-warning/40",
+            insufficient && "border-border bg-muted/25",
           )}
         >
-          {response.response.insufficient_evidence && (
-            <div className="mb-3 flex items-center gap-2 text-xs text-warning">
-              <Info className="h-3.5 w-3.5" /> Not covered by the available approved resources
+          {insufficient && (
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-background/40 px-3 py-1 text-xs text-muted-foreground">
+              <Info className="h-3.5 w-3.5" /> Limited coverage — not in the approved resources
             </div>
           )}
-          <AnswerText text={response.response.text} onCite={onCite} />
+          <AnswerText text={response.response.text} onCite={onCite} animate />
 
           {response.changes.flatMap((d) => d.changes).length > 0 && (
             <div className="mt-4 space-y-1.5">

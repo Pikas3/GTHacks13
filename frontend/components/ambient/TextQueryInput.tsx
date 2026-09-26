@@ -10,7 +10,7 @@ export function TextQueryInput({ onSubmit, disabled }: { onSubmit: (q: string) =
   const [value, setValue] = useState("");
   return (
     <form
-      className="flex w-full max-w-md items-center gap-2 rounded-full border border-border bg-background/40 px-3 py-1 text-sm opacity-80 focus-within:opacity-100"
+      className="mt-2 flex w-full max-w-sm items-center gap-2 rounded-full border border-border/50 bg-background/30 px-3 py-0.5 text-xs text-muted-foreground opacity-60 focus-within:opacity-100"
       onSubmit={(e) => {
         e.preventDefault();
         if (!value.trim()) return;
