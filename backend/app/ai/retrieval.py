@@ -54,10 +54,10 @@ class ResourceRetriever(Protocol):
 class RankingWeights(BaseModel):
     """Hackathon heuristic weights. Tune freely; keep them in one place."""
 
-    semantic: float = 0.42
+    semantic: float = 0.40
     lexical: float = 0.12
     entity_match: float = 0.12
-    topic_match: float = 0.12
+    topic_match: float = 0.16
     preference: float = 0.08
     recency: float = 0.04
     interest: float = 0.04
@@ -73,6 +73,19 @@ def _topic_terms(topic: str | None) -> tuple[str, ...]:
         return ()
     _, aliases = ENTITY_ALIASES.get(topic, (None, ()))
     return (topic.lower(), *aliases)
+
+
+def _topic_match(haystack: str, section: str | None, topic: str | None) -> float:
+    """1.0 exact section==topic, 0.85 full topic phrase in text, else alias hit."""
+    if not topic:
+        return 0.0
+    topic_l = topic.lower()
+    section_l = (section or "").lower()
+    if section_l == topic_l:
+        return 1.0
+    if topic_l in haystack:
+        return 0.85
+    return 1.0 if any(t in haystack for t in _topic_terms(topic)) else 0.0
 
 
 def _rrf_scores(ranked_lists: list[list[ChunkHit]], k: int) -> dict[UUID, float]:
@@ -185,7 +198,7 @@ class HybridResourceRetriever:
             previously_viewed=1.0 if viewed else 0.0,
             new_since_last_view=1.0 if is_new else 0.0,
         )
-        topic_match = 1.0 if any(t in haystack for t in _topic_terms(plan.topic)) else 0.0
+        topic_match = _topic_match(haystack, chunk.section, plan.topic)
         score = (
             w.semantic * b.semantic
             + w.lexical * b.lexical

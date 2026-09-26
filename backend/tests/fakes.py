@@ -91,7 +91,11 @@ class FakeResourceRepository:
         self.embedder = embedder
 
     async def load_seed(self) -> "FakeResourceRepository":
-        parsed = [parse_resource_file(p) for p in sorted((SEED_DIR / "resources").glob("*.md"))]
+        parsed = [
+            parse_resource_file(p)
+            for p in sorted((SEED_DIR / "resources").iterdir())
+            if p.suffix.lower() in {".md", ".markdown", ".pdf"}
+        ]
         self.by_key = {r.key: stable_id("resource", r.key) for r in parsed}
         for r in parsed:
             rid = self.by_key[r.key]

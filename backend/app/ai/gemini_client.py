@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import re
 import time
 from typing import TypeVar
 
@@ -56,6 +57,37 @@ def _is_retryable(exc: BaseException) -> bool:
     return any(m in name or m in msg for m in markers)
 
 
+def _provider_retry_delay_s(exc: BaseException) -> float | None:
+    """Extract RetryInfo.retryDelay from google.genai ClientError payloads."""
+    candidates: list[object] = [
+        getattr(exc, "response_json", None),
+        getattr(exc, "details", None),
+        *exc.args,
+    ]
+    for payload in candidates:
+        details = None
+        if isinstance(payload, dict):
+            details = payload.get("details") or (payload.get("error") or {}).get("details")
+            if details is None and "retryDelay" in payload:
+                details = [payload]
+        if not isinstance(details, list):
+            continue
+        for item in details:
+            if not isinstance(item, dict):
+                continue
+            raw = item.get("retryDelay")
+            if not raw:
+                continue
+            try:
+                return float(str(raw).rstrip("sS"))
+            except ValueError:
+                continue
+    match = re.search(r"retry in ([0-9.]+)\s*s", str(exc), re.I)
+    if match:
+        return float(match.group(1))
+    return None
+
+
 class GeminiClient:
     def __init__(self, settings: Settings) -> None:
         if settings.google_api_key is None:
@@ -70,23 +102,27 @@ class GeminiClient:
         self.embedding_dimension = settings.gemini_embedding_dimension
 
     async def _with_retries(self, operation: str, call):
-        deadline = time.monotonic() + self._timeout_s
+        # Allow one long provider-requested pause (free-tier 429s often ask for ~30–60s).
+        deadline = time.monotonic() + max(self._timeout_s, 90.0)
         last_exc: BaseException | None = None
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
             try:
-                return await asyncio.wait_for(call(), timeout=remaining)
+                return await asyncio.wait_for(call(), timeout=min(remaining, self._timeout_s))
             except Exception as exc:  # SDK raises several error types; normalize them.
                 last_exc = exc
                 retryable = _is_retryable(exc)
                 if not retryable or attempt >= _MAX_ATTEMPTS:
                     break
-                sleep_s = min(
-                    _BASE_BACKOFF_S * (2 ** (attempt - 1)) + random.uniform(0, 0.25),
-                    max(0.0, deadline - time.monotonic()),
+                provider_delay = _provider_retry_delay_s(exc)
+                sleep_s = (
+                    provider_delay
+                    if provider_delay is not None
+                    else (_BASE_BACKOFF_S * (2 ** (attempt - 1)) + random.uniform(0, 0.25))
                 )
+                sleep_s = min(sleep_s + random.uniform(0, 0.5), max(0.0, deadline - time.monotonic()))
                 if sleep_s <= 0:
                     break
                 logger.warning(
@@ -145,12 +181,20 @@ class GeminiClient:
         if not texts:
             return []
         config = types.EmbedContentConfig(task_type=task_type, output_dimensionality=self.embedding_dimension)
+        # Pass Content objects — a bare list[str] collapses to a single embedding in google-genai.
+        contents = [types.Content(parts=[types.Part(text=t)]) for t in texts]
 
         async def _call():
             return await self._client.aio.models.embed_content(
-                model=self.embedding_model, contents=texts, config=config
+                model=self.embedding_model, contents=contents, config=config
             )
 
         with timed("gemini.embed", timings, model=self.embedding_model, count=len(texts)):
             response = await self._with_retries("gemini.embed", _call)
-        return [list(e.values or []) for e in response.embeddings or []]
+        vectors = [list(e.values or []) for e in response.embeddings or []]
+        if len(vectors) != len(texts):
+            raise AppError(
+                ErrorCode.GEMINI_UNAVAILABLE,
+                f"Gemini returned {len(vectors)} embeddings for {len(texts)} texts",
+            )
+        return vectors
