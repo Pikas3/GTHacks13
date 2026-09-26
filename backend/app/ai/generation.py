@@ -19,7 +19,7 @@ from app.schemas.diff import SemanticDiff
 from app.schemas.enums import IntentType
 from app.schemas.interaction import TimelineEntry
 
-_CITE = re.compile(r"\[(E\d+)\]")
+_CITE_BLOCK = re.compile(r"\[([^\]]+)\]")
 _SPEECH_MAX_WORDS = 45
 
 
@@ -63,13 +63,14 @@ def enforce_grounding_guards(answer: GeneratedAnswer, evidence: list[EvidenceRef
     """Post-conditions: valid citations only, short speech without brackets, force insufficient when empty."""
     valid_ids = {e.id for e in evidence}
 
-    # Drop invented citation labels from text.
-    def _keep_cite(match: re.Match[str]) -> str:
-        return match.group(0) if match.group(1) in valid_ids else ""
+    def _rewrite_cite(match: re.Match[str]) -> str:
+        ids = re.findall(r"E\d+", match.group(1))
+        keep = [i for i in ids if i in valid_ids]
+        return "".join(f"[{i}]" for i in keep)
 
-    text = _CITE.sub(_keep_cite, answer.text)
+    text = _CITE_BLOCK.sub(_rewrite_cite, answer.text)
     text = re.sub(r"\s{2,}", " ", text).strip()
-    cited = [i for i in _CITE.findall(text) if i in valid_ids]
+    cited = re.findall(r"\[(E\d+)\]", text)
     # Prefer model-reported ids that still exist, then citations found in text.
     cited_ids = [i for i in answer.cited_evidence_ids if i in valid_ids]
     for cid in cited:

@@ -82,7 +82,11 @@ async def seed_hcps(session: AsyncSession, hcps: list[dict[str, Any]]) -> None:
 
 async def seed_resources(session: AsyncSession, settings: Settings, resource_dir: Path) -> dict[str, uuid.UUID]:
     embedder = build_ai_providers(settings).embedder
-    parsed: list[ParsedResource] = [parse_resource_file(p) for p in sorted(resource_dir.glob("*.md"))]
+    parsed: list[ParsedResource] = [
+        parse_resource_file(p)
+        for p in sorted(resource_dir.iterdir())
+        if p.suffix.lower() in {".md", ".markdown", ".pdf"}
+    ]
     ids = {r.key: stable_id("resource", r.key) for r in parsed}
     # Insert in publication order so superseded versions exist before their successors.
     for r in sorted(parsed, key=lambda r: r.published_at):

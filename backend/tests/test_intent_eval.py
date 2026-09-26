@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -47,7 +48,10 @@ async def test_live_gemini_intent_eval_accuracy() -> None:
     classifier = GeminiIntentClassifier(GeminiClient(settings))
     cases = _cases()
     hits = 0
-    for case in cases:
+    for i, case in enumerate(cases):
+        # Free-tier generate limits are tight (~15 RPM); pace live calls.
+        if i:
+            await asyncio.sleep(4.5)
         result = await classifier.classify(case["query"], _context(case.get("context") or {}))
         if result.intent == IntentType(case["expected"]["intent"]):
             hits += 1
