@@ -18,5 +18,7 @@ ENTITY_ALIASES: dict[str, tuple[EntityType, tuple[str, ...]]] = {
     "efficacy": (EntityType.TOPIC, ("efficacy", "response rate", "endpoint", "results")),
     "adherence": (EntityType.TOPIC, ("adherence", "compliance")),
     "HER2": (EntityType.BIOMARKER, ("her2",)),
-    "heart failure": (EntityType.CONDITION, ("heart failure", "hf")),
+    "heart failure": (EntityType.CONDITION, ("heart failure", "hf", "condition h")),
+    "Condition X": (EntityType.CONDITION, ("condition x",)),
+    "Condition Z": (EntityType.CONDITION, ("condition z",)),
 }

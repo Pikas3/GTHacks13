@@ -12,8 +12,17 @@ source_url: https://example.invalid/synthetic/lumetrex/patient-guide
 ## Synthetic Product Notice
 Lumetrex (code LMX-000) is a FICTIONAL product for the Impiricus Ambient prototype. Not medical guidance.
 
+## What Lumetrex Is For
+In this demo guide, Lumetrex is described for fictional "Condition Z", a placeholder primary-care condition used only in the prototype.
+
+## How to Take It
+Synthetic once-daily dosing with or without food. Includes a demo pictorial schedule for morning vs evening preference.
+
 ## Adherence Tips
-The synthetic guide suggests placeholder adherence aids: a demo reminder app, a printable placeholder calendar, and a fictional refill text service.
+The synthetic guide suggests placeholder adherence aids: a demo reminder app, a printable placeholder calendar, a fictional refill text service, and a weekly pill organizer cartoon.
 
 ## Safety Information for Patients
-The guide lists placeholder "Category Gamma" symptoms that synthetic patients are asked to report to their care team.
+The guide lists placeholder "Category Gamma" symptoms that synthetic patients are asked to report to their care team, plus hydration reminders that are also fictional.
+
+## Lifestyle Notes
+FICTIONAL counseling points on alcohol placeholders and driving if Category Gamma drowsiness occurs in the demo narrative.
