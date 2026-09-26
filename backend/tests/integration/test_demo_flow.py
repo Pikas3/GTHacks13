@@ -152,3 +152,49 @@ async def test_todays_events_stay_visible_after_a_refresh(db, ai) -> None:
     assert today.get("renal impairment") == 1
     assert today.get("dosing") == 1, f"event after refresh missing from cagg: {today}"
 
+
+async def test_demo_works_on_compressed_history(db, ai) -> None:
+    """Columnstore (0004): compressed chunks must stay readable, writable (backfill) and aggregatable."""
+    if not db.capabilities["timescaledb"]:
+        pytest.skip("compression requires TimescaleDB")
+    from app.db.session import refresh_topic_cagg
+    from app.schemas.interaction import InteractionEventCreate
+
+    async with db.engine.connect() as conn:
+        conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+        await conn.execute(
+            text(
+                "SELECT compress_chunk(c, if_not_compressed => TRUE) "
+                "FROM show_chunks('interaction_event', older_than => INTERVAL '30 days') c"
+            )
+        )
+        compressed = await conn.scalar(
+            text(
+                "SELECT count(*) FROM timescaledb_information.chunks "
+                "WHERE hypertable_name = 'interaction_event' AND is_compressed"
+            )
+        )
+    assert compressed >= 1, "seeded June/July history should be in compressed chunks"
+
+    # Reads over compressed history: the July 2 review still anchors "what's new".
+    resp = await ask(db, ai, WHATS_CHANGED)
+    assert "July 2, 2026" in resp.response.text and len(resp.evidence) == 2
+
+    # Backfill into a compressed chunk, then refresh the aggregate.
+    await with_repos(
+        db,
+        lambda r: r.interactions.record(
+            InteractionEventCreate(
+                hcp_id=MORGAN,
+                event_type=EventType.TEXT_QUERY,
+                timestamp=datetime(2026, 6, 14, 15, 0, tzinfo=UTC),
+                query_text="backfilled",
+                entity="Novara",
+                topic="dosing",
+            )
+        ),
+    )
+    await refresh_topic_cagg(db.engine)
+    points = await with_repos(db, lambda r: r.interactions.engagement_over_time(MORGAN))
+    june = {p.topic: p.event_count for p in points if p.bucket.date() == datetime(2026, 6, 14).date()}
+    assert june.get("dosing") == 1
