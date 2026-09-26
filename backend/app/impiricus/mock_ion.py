@@ -3,12 +3,13 @@
 Everything here is a simplified, transparent stand-in built on the prototype database.
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
 from app.db.repositories.interfaces import HCPRepository, InteractionRepository, ResourceRepository
 from app.errors import AppError, ErrorCode
-from app.impiricus.signals import next_score
+from app.impiricus.signals import DEFAULT_HALF_LIFE_DAYS, decay_score, effective_interests, next_score
 from app.schemas.ambient import HCPContext
 from app.schemas.enums import REVIEW_EVENT_TYPES, EntityType
 from app.schemas.hcp import HCPInterestRead
@@ -22,10 +23,15 @@ class MockIONService:
         hcps: HCPRepository,
         interactions: InteractionRepository,
         resources: ResourceRepository,
+        *,
+        half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.hcps = hcps
         self.interactions = interactions
         self.resources = resources
+        self.half_life_days = half_life_days
+        self.clock = clock
 
     async def get_hcp_context(self, hcp_id: UUID, entity: str | None = None) -> HCPContext:
         hcp = await self.hcps.get_hcp(hcp_id)
@@ -34,7 +40,7 @@ class MockIONService:
         return HCPContext(
             hcp=hcp,
             preferences=await self.hcps.get_preferences(hcp_id),
-            interests=await self.hcps.get_interests(hcp_id),
+            interests=await self.get_topic_affinities(hcp_id),
             recent_interactions=await self.interactions.recent(hcp_id, limit=10),
             viewed_resource_ids=await self.interactions.viewed_resource_ids(hcp_id),
             last_entity_review=(
@@ -45,16 +51,18 @@ class MockIONService:
         )
 
     async def record_signal(self, signal: EngagementSignal) -> EngagementSignal:
+        at = signal.timestamp or self.clock()
         interests = await self.hcps.get_interests(signal.hcp_id)
-        old = next((i.score for i in interests if i.entity.lower() == signal.entity.lower()), 0.0)
+        current = next((i for i in interests if i.entity.lower() == signal.entity.lower()), None)
+        # Decay the stored score up to now, then add this event's weight.
+        old = decay_score(current.score, current.last_interaction_at, at, self.half_life_days) if current else 0.0
         new = next_score(old, signal.weight)
-        await self.hcps.upsert_interest(
-            signal.hcp_id, signal.entity, signal.entity_type, new, signal.timestamp or datetime.now(UTC)
-        )
+        await self.hcps.upsert_interest(signal.hcp_id, signal.entity, signal.entity_type, new, at)
         return signal.model_copy(update={"new_score": new})
 
     async def get_topic_affinities(self, hcp_id: UUID) -> list[HCPInterestRead]:
-        return await self.hcps.get_interests(hcp_id)
+        """Current (time-decayed) interest scores, highest first."""
+        return effective_interests(await self.hcps.get_interests(hcp_id), self.clock(), self.half_life_days)
 
     async def get_recommended_resource(self, hcp_id: UUID, limit: int = 3) -> list[Recommendation]:
         """Newest unseen resources for the HCP's highest-affinity products.

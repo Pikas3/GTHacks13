@@ -25,11 +25,24 @@ Every non-2xx response has the same shape:
 
 Each response has an `x-request-id` header, and the same ID appears in the backend logs.
 
+## Changelog
+
+- **2026-09-26 (feature/tigerdata):**
+  - Added `GET /intelligence/{hcp_id}/activity` and `GET /intelligence/topics/trending`.
+  - Added `topic_cagg` to `/health`.
+  - `engagement` no longer counts `SESSION_STARTED` as a "general" topic.
+  - Frontend `lib/types.ts`, `lib/api.ts` (`getActivity`, `getTrendingTopics`) and `lib/mockApi.ts` are
+    updated to match. No UI uses them yet (member A).
+  - Interest scores returned by `/hcps/{id}`, `/hcps/{id}/interests` and `/intelligence/{id}/signals` are
+    now **time-decayed** (`INTEREST_HALF_LIFE_DAYS`, default 90). Shapes are unchanged; values are lower
+    for stale interests.
+  - `AmbientResponse.timings_ms` now includes `ambient.total`. It was previously always missing.
+
 ## Endpoints
 
 | Method | Path | Returns |
 |--------|------|---------|
-| GET | `/health` | `{status, database, timescaledb, pgvector, ai_mode, voice_mode, gemini_model, …}` (never errors) |
+| GET | `/health` | `{status, database, timescaledb, pgvector, topic_cagg, ai_mode, voice_mode, gemini_model, …}` (never errors) |
 | GET | `/hcps` | `HCP[]` |
 | GET | `/hcps/{hcp_id}` | `HCPDetail` (+ preferences, interests) |
 | GET | `/hcps/{hcp_id}/timeline?limit=30` | `TimelineEntry[]` newest first |
@@ -46,7 +59,9 @@ Each response has an `x-request-id` header, and the same ID appears in the backe
 | GET | `/audio/speech/{speech_id}` | streaming audio bytes (same TTS headers); short-lived (~120s) |
 | GET | `/intelligence/{hcp_id}/signals?limit=20` | `{hcp_id, signals: EngagementSignal[], affinities: HCPInterest[]}` |
 | GET | `/intelligence/{hcp_id}/recommendations` | `{hcp_id, recommendations: [{resource, reason, score}]}` |
-| GET | `/intelligence/{hcp_id}/engagement?bucket=1 day` | `{points: [{bucket, topic, event_count}], top_entities}` |
+| GET | `/intelligence/{hcp_id}/engagement?bucket=1 day` | `{points: [{bucket, topic, event_count}], top_entities}`. Daily/weekly come from the real-time continuous aggregate; `SESSION_STARTED` excluded |
+| GET | `/intelligence/{hcp_id}/activity?since=<ISO>` | `ActivitySince` `{hcp_id, since, event_count, by_type: {EVENT_TYPE: n}, events: TimelineEntry[]}`. `since` defaults to 7 days ago; naive timestamps are treated as UTC |
+| GET | `/intelligence/topics/trending?window=7 days&limit=10` | `TrendingTopics` `{window, topics: [{topic, event_count, hcp_count, last_seen}]}` across all HCPs. `window` ∈ `1 day`, `7 days`, `30 days`, `90 days` (other values → 422) |
 
 ## POST /ambient/query
 

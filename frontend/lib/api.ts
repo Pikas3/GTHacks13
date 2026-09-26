@@ -5,6 +5,7 @@
 import { env } from "@/lib/env";
 import { createMockApi } from "@/lib/mockApi";
 import type {
+  ActivitySince,
   AmbientRequest,
   AmbientResponse,
   ApiErrorCode,
@@ -23,6 +24,9 @@ import type {
   SynthesizedSpeech,
   TimelineEntry,
   TranscriptionResult,
+  TrendingTopics,
+  TrendingWindow,
+  ISODateTime,
   UUID,
 } from "@/lib/types";
 
@@ -58,6 +62,8 @@ export interface AmbientApi {
   getSignals(hcpId: UUID, limit?: number): Promise<IntelligenceSignals>;
   getRecommendations(hcpId: UUID): Promise<IntelligenceRecommendations>;
   getEngagement(hcpId: UUID, bucket?: "1 hour" | "1 day" | "1 week"): Promise<EngagementSeries>;
+  getActivity(hcpId: UUID, since?: ISODateTime): Promise<ActivitySince>;
+  getTrendingTopics(window?: TrendingWindow, limit?: number): Promise<TrendingTopics>;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -130,6 +136,10 @@ export const httpApi: AmbientApi = {
   getRecommendations: (id) => request(`/intelligence/${id}/recommendations`),
   getEngagement: (id, bucket = "1 day") =>
     request(`/intelligence/${id}/engagement?bucket=${encodeURIComponent(bucket)}`),
+  getActivity: (id, since) =>
+    request(`/intelligence/${id}/activity${since ? `?since=${encodeURIComponent(since)}` : ""}`),
+  getTrendingTopics: (window = "7 days", limit = 10) =>
+    request(`/intelligence/topics/trending?window=${encodeURIComponent(window)}&limit=${limit}`),
 };
 
 /** The API implementation used by the app (HTTP by default, fixtures when NEXT_PUBLIC_USE_MOCK_API=true). */

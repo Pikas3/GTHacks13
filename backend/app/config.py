@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     data_dir: Path = Field(default=REPO_ROOT / "data")
 
+    # --- Personalization (hackathon heuristic) ------------------------------
+    # Interest scores halve after this many days without interaction; 0 disables decay.
+    interest_half_life_days: float = 90.0
+
     # --- Retrieval ----------------------------------------------------------
     retrieval_default_limit: int = 8
     retrieval_candidate_pool: int = 40

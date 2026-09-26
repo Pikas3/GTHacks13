@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.db.repositories.interfaces import InteractionRepository, ResourceRepository
 from app.schemas.enums import REVIEW_EVENT_TYPES, EventType
+from app.schemas.intelligence import ActivitySince
 from app.schemas.interaction import InteractionEventRead, TimelineEntry
 from app.schemas.resource import ResourceRead
 
@@ -40,6 +41,18 @@ def timeline_label(ev: InteractionEventRead) -> str:
             return ev.event_type.value.replace("_", " ").title()
 
 
+def _to_entry(e: InteractionEventRead) -> TimelineEntry:
+    return TimelineEntry(
+        id=e.id,
+        timestamp=e.timestamp,
+        event_type=e.event_type,
+        label=timeline_label(e),
+        entity=e.entity,
+        topic=e.topic,
+        resource_id=e.resource_id,
+    )
+
+
 class MemoryService:
     def __init__(self, interactions: InteractionRepository, resources: ResourceRepository) -> None:
         self.interactions = interactions
@@ -67,25 +80,27 @@ class MemoryService:
     ) -> list[ResourceRead]:
         return await self.resources.published_after(entity, timestamp)
 
+    async def get_activity_since(self, hcp_id: UUID, since: datetime, limit: int = 200) -> ActivitySince:
+        """Everything the HCP did after `since` (newest first), with counts per event type."""
+        events = [e for e in await self.interactions.recent(hcp_id, limit=limit, since=since)]
+        by_type: dict[EventType, int] = {}
+        for e in events:
+            by_type[e.event_type] = by_type.get(e.event_type, 0) + 1
+        return ActivitySince(
+            hcp_id=hcp_id,
+            since=since,
+            event_count=len(events),
+            by_type=by_type,
+            events=[_to_entry(e) for e in events if e.event_type != EventType.SESSION_STARTED],
+        )
+
     async def get_timeline(
         self, hcp_id: UUID, limit: int = 20, exclude_session_id: UUID | None = None
     ) -> list[TimelineEntry]:
         events = await self.interactions.recent(hcp_id, limit=limit)
         if exclude_session_id is not None:
             events = [e for e in events if e.session_id != exclude_session_id]
-        return [
-            TimelineEntry(
-                id=e.id,
-                timestamp=e.timestamp,
-                event_type=e.event_type,
-                label=timeline_label(e),
-                entity=e.entity,
-                topic=e.topic,
-                resource_id=e.resource_id,
-            )
-            for e in events
-            if e.event_type != EventType.SESSION_STARTED
-        ]
+        return [_to_entry(e) for e in events if e.event_type != EventType.SESSION_STARTED]
 
     async def whats_new(self, hcp_id: UUID, entity: str, since: InteractionEventRead | None) -> WhatsNew:
         """'What's changed since I last looked at <entity>?'

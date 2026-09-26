@@ -76,7 +76,9 @@ class AmbientOrchestrator:
     ) -> AmbientResponse:
         timings: dict[str, float] = {}
         with timed("ambient.total", timings):
-            return await self._process(hcp_id, session_id, query.strip(), input_mode, timings)
+            response = await self._process(hcp_id, session_id, query.strip(), input_mode, timings)
+        # `timed` records on exit, i.e. after the response was built; copy the final timings in.
+        return response.model_copy(update={"timings_ms": dict(timings)})
 
     async def _process(
         self, hcp_id: UUID, session_id: UUID | None, query: str, input_mode: InputMode, timings: dict[str, float]

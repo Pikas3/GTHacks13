@@ -10,7 +10,7 @@ from uuid import UUID
 from app.schemas.conversation import ConversationContext, ConversationTurnRead, SessionDetail, SessionRead
 from app.schemas.enums import ConversationRole, EntityType, EventType
 from app.schemas.hcp import HCPDetail, HCPInterestRead, HCPPreferenceRead, HCPRead
-from app.schemas.intelligence import EngagementBucket, TopicAffinity
+from app.schemas.intelligence import EngagementBucket, TopicAffinity, TrendingTopic
 from app.schemas.interaction import InteractionEventCreate, InteractionEventRead
 from app.schemas.resource import ChunkHit, ResourceDetail, ResourceRead
 
@@ -67,6 +67,7 @@ class InteractionRepository(Protocol):
     async def engagement_over_time(
         self, hcp_id: UUID, *, bucket: str = "1 day", since: datetime | None = None
     ) -> list[EngagementBucket]: ...
+    async def trending_topics(self, *, window: str = "7 days", limit: int = 10) -> list[TrendingTopic]: ...
 
 
 class ConversationRepository(Protocol):
