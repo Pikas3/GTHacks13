@@ -139,15 +139,44 @@ class Repositories:
     conversations: SqlConversationRepository
 
 
-def get_repositories(
-    db: AsyncSession = Depends(get_db), container: ServiceContainer = Depends(get_container)
-) -> Repositories:
+def build_repositories(db: AsyncSession, capabilities: dict[str, bool]) -> Repositories:
+    """Bind SQL repositories to one session. Shared by the API and the integration tests."""
     return Repositories(
         hcps=SqlHCPRepository(db),
         resources=SqlResourceRepository(db),
-        interactions=SqlInteractionRepository(db, use_timescale=container.capabilities.get("timescaledb", False)),
+        interactions=SqlInteractionRepository(
+            db,
+            use_timescale=capabilities.get("timescaledb", False),
+            use_topic_cagg=capabilities.get("topic_cagg", False),
+        ),
         conversations=SqlConversationRepository(db),
     )
+
+
+def build_orchestrator(settings: Settings, ai: AIProviders, repos: Repositories) -> AmbientOrchestrator:
+    ion = MockIONService(repos.hcps, repos.interactions, repos.resources)
+    return AmbientOrchestrator(
+        intent_classifier=ai.intent,
+        retriever=HybridResourceRetriever(
+            repos.resources, ai.embedder, candidate_pool=settings.retrieval_candidate_pool
+        ),
+        generator=ai.generator,
+        diff_service=ai.diff,
+        context_resolver=ContextResolver(),
+        memory=MemoryService(repos.interactions, repos.resources),
+        personalization=PersonalizationService(ion),
+        ion=ion,
+        conversations=repos.conversations,
+        interactions=repos.interactions,
+        resources=repos.resources,
+        retrieval_limit=settings.retrieval_default_limit,
+    )
+
+
+def get_repositories(
+    db: AsyncSession = Depends(get_db), container: ServiceContainer = Depends(get_container)
+) -> Repositories:
+    return build_repositories(db, container.capabilities)
 
 
 def get_ion(repos: Repositories = Depends(get_repositories)) -> MockIONService:
@@ -167,23 +196,5 @@ def get_engagement_service(
 def get_orchestrator(
     container: ServiceContainer = Depends(get_container),
     repos: Repositories = Depends(get_repositories),
-    ion: MockIONService = Depends(get_ion),
-    memory: MemoryService = Depends(get_memory),
 ) -> AmbientOrchestrator:
-    ai = container.ai
-    return AmbientOrchestrator(
-        intent_classifier=ai.intent,
-        retriever=HybridResourceRetriever(
-            repos.resources, ai.embedder, candidate_pool=container.settings.retrieval_candidate_pool
-        ),
-        generator=ai.generator,
-        diff_service=ai.diff,
-        context_resolver=ContextResolver(),
-        memory=memory,
-        personalization=PersonalizationService(ion),
-        ion=ion,
-        conversations=repos.conversations,
-        interactions=repos.interactions,
-        resources=repos.resources,
-        retrieval_limit=container.settings.retrieval_default_limit,
-    )
+    return build_orchestrator(container.settings, container.ai, repos)

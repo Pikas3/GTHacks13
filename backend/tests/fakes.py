@@ -6,7 +6,7 @@ Lets us test services and the orchestrator without a database or API keys.
 import json
 import math
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -18,7 +18,7 @@ from app.ingestion.seed import stable_id
 from app.schemas.conversation import ConversationContext, ConversationTurnRead, SessionDetail, SessionRead
 from app.schemas.enums import ConversationRole, EntityType, EventType
 from app.schemas.hcp import HCPDetail, HCPInterestRead, HCPPreferenceRead, HCPRead
-from app.schemas.intelligence import EngagementBucket, TopicAffinity
+from app.schemas.intelligence import EngagementBucket, TopicAffinity, TrendingTopic
 from app.schemas.interaction import InteractionEventCreate, InteractionEventRead
 from app.schemas.resource import ChunkHit, ResourceChunkRead, ResourceDetail, ResourceRead
 
@@ -249,7 +249,26 @@ class FakeInteractionRepository:
     async def engagement_over_time(
         self, hcp_id: UUID, *, bucket: str = "1 day", since: datetime | None = None
     ) -> list[EngagementBucket]:
-        return []
+        counts: dict[tuple[datetime, str], int] = {}
+        for e in self._for(hcp_id):
+            if e.event_type == EventType.SESSION_STARTED or (since and e.timestamp <= since):
+                continue
+            day = e.timestamp.replace(hour=0, minute=0, second=0, microsecond=0)
+            key = (day, e.topic or e.entity or "general")
+            counts[key] = counts.get(key, 0) + 1
+        return [EngagementBucket(bucket=b, topic=t, event_count=n) for (b, t), n in sorted(counts.items())]
+
+    async def trending_topics(self, *, window: str = "7 days", limit: int = 10) -> list[TrendingTopic]:
+        cutoff = datetime.now(UTC) - timedelta(days=int(window.split()[0]))
+        agg: dict[str, list] = {}
+        for e in self.events:
+            label = e.topic or e.entity
+            if e.event_type == EventType.SESSION_STARTED or not label or e.timestamp <= cutoff:
+                continue
+            n, hcps, last = agg.get(label, [0, set(), e.timestamp])
+            agg[label] = [n + 1, hcps | {e.hcp_id}, max(last, e.timestamp)]
+        rows = sorted(agg.items(), key=lambda kv: (-kv[1][0], kv[0]))[:limit]
+        return [TrendingTopic(topic=t, event_count=n, hcp_count=len(h), last_seen=ls) for t, (n, h, ls) in rows]
 
 
 class FakeConversationRepository:

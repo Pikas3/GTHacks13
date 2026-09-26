@@ -2,21 +2,34 @@
 
 Example time-series queries live here (recent events, counts by topic, engagement over time,
 top entities, activity since a timestamp, timeline). `time_bucket` is used when TimescaleDB is
-installed; otherwise we fall back to `date_trunc` so plain PostgreSQL still works.
+installed; otherwise we fall back to `date_trunc` so plain PostgreSQL still works. Daily engagement is
+read from the `hcp_topic_engagement_daily` continuous aggregate when present.
 """
 
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, literal_column, select
+from sqlalchemy import BigInteger, DateTime, String, column, func, literal_column, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import InteractionEvent, Resource
+from app.db.session import TOPIC_CAGG
 from app.schemas.enums import EventType
-from app.schemas.intelligence import EngagementBucket, TopicAffinity
+from app.schemas.intelligence import TRENDING_WINDOWS, EngagementBucket, TopicAffinity, TrendingTopic
 from app.schemas.interaction import InteractionEventCreate, InteractionEventRead
 
 _RESOURCE_LABEL = (Resource.title + " v" + Resource.version).label("resource_label")
+
+_TOPIC_LABEL = func.coalesce(InteractionEvent.topic, InteractionEvent.entity, "general")
+
+# Continuous aggregate created by migrations 0002/0003 (daily buckets, excludes SESSION_STARTED).
+_TOPIC_CAGG = table(
+    TOPIC_CAGG,
+    column("bucket", DateTime(timezone=True)),
+    column("hcp_id"),
+    column("topic", String),
+    column("event_count", BigInteger),
+)
 
 _BUCKETS = {"1 hour": "hour", "1 day": "day", "1 week": "week"}
 
@@ -43,9 +56,10 @@ def _to_read(row: InteractionEvent, resource_title: str | None = None) -> Intera
 
 
 class SqlInteractionRepository:
-    def __init__(self, session: AsyncSession, *, use_timescale: bool = False) -> None:
+    def __init__(self, session: AsyncSession, *, use_timescale: bool = False, use_topic_cagg: bool = False) -> None:
         self.session = session
         self.use_timescale = use_timescale
+        self.use_topic_cagg = use_topic_cagg
 
     async def record(self, event: InteractionEventCreate) -> InteractionEventRead:
         row = InteractionEvent(
@@ -140,22 +154,73 @@ class SqlInteractionRepository:
     async def engagement_over_time(
         self, hcp_id: UUID, *, bucket: str = "1 day", since: datetime | None = None
     ) -> list[EngagementBucket]:
+        """Event counts per (time bucket, topic) for one HCP.
+
+        Daily/weekly reads come from the real-time `hcp_topic_engagement_daily` continuous aggregate when
+        it exists; hourly buckets (finer than the aggregate) and plain PostgreSQL use the raw hypertable.
+        """
         if bucket not in _BUCKETS:
             raise ValueError(f"bucket must be one of {list(_BUCKETS)}")
+        if self.use_topic_cagg and bucket != "1 hour":
+            return await self._engagement_from_cagg(hcp_id, bucket=bucket, since=since)
         if self.use_timescale:
             bucket_expr = func.time_bucket(literal_column(f"INTERVAL '{bucket}'"), InteractionEvent.timestamp)
         else:
             bucket_expr = func.date_trunc(_BUCKETS[bucket], InteractionEvent.timestamp)
         b = bucket_expr.label("bucket")
-        topic = func.coalesce(InteractionEvent.topic, InteractionEvent.entity, "general").label("topic")
+        topic = _TOPIC_LABEL.label("topic")
         stmt = (
             select(b, topic, func.count().label("n"))
-            .where(InteractionEvent.hcp_id == hcp_id)
+            .where(InteractionEvent.hcp_id == hcp_id, InteractionEvent.event_type != EventType.SESSION_STARTED)
             .group_by(b, topic)
-            .order_by(b)
+            .order_by(b, topic)
         )
         if since is not None:
             stmt = stmt.where(InteractionEvent.timestamp > since)
-        # TODO(database): read from the `hcp_topic_engagement_daily` continuous aggregate when present.
         rows = (await self.session.execute(stmt)).all()
         return [EngagementBucket(bucket=bk, topic=t, event_count=n) for bk, t, n in rows]
+
+    async def _engagement_from_cagg(
+        self, hcp_id: UUID, *, bucket: str, since: datetime | None
+    ) -> list[EngagementBucket]:
+        c = _TOPIC_CAGG.c
+        b = (
+            c.bucket if bucket == "1 day" else func.time_bucket(literal_column(f"INTERVAL '{bucket}'"), c.bucket)
+        ).label("bucket")
+        stmt = (
+            select(b, c.topic, func.sum(c.event_count).label("n"))
+            .where(c.hcp_id == hcp_id)
+            .group_by(b, c.topic)
+            .order_by(b, c.topic)
+        )
+        if since is not None:
+            stmt = stmt.where(c.bucket >= func.time_bucket(literal_column("INTERVAL '1 day'"), since))
+        rows = (await self.session.execute(stmt)).all()
+        return [EngagementBucket(bucket=bk, topic=t, event_count=int(n)) for bk, t, n in rows]
+
+    async def trending_topics(self, *, window: str = "7 days", limit: int = 10) -> list[TrendingTopic]:
+        """Most-engaged topics across ALL HCPs in a trailing time window.
+
+        The time predicate lets Timescale exclude hypertable chunks outside the window.
+        """
+        if window not in TRENDING_WINDOWS:
+            raise ValueError(f"window must be one of {list(TRENDING_WINDOWS)}")
+        label = _TOPIC_LABEL.label("topic")
+        stmt = (
+            select(
+                label,
+                func.count().label("n"),
+                func.count(func.distinct(InteractionEvent.hcp_id)).label("hcps"),
+                func.max(InteractionEvent.timestamp).label("last_seen"),
+            )
+            .where(
+                InteractionEvent.timestamp > func.now() - literal_column(f"INTERVAL '{window}'"),
+                InteractionEvent.event_type != EventType.SESSION_STARTED,
+                func.coalesce(InteractionEvent.topic, InteractionEvent.entity).is_not(None),
+            )
+            .group_by(label)
+            .order_by(func.count().desc(), label)
+            .limit(limit)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [TrendingTopic(topic=t, event_count=n, hcp_count=h, last_seen=ls) for t, n, h, ls in rows]

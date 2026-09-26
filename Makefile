@@ -4,7 +4,7 @@ VENV := backend/.venv
 PY := $(abspath $(VENV))/bin/python
 
 .PHONY: help setup backend-install frontend-install env db-up db-down db-reset migrate seed \
-        backend frontend test backend-test frontend-check lint
+        backend frontend test backend-test backend-itest frontend-check lint
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -50,8 +50,12 @@ frontend: ## Run Next.js dev server on :3000
 
 test: backend-test frontend-check ## Run all tests and checks
 
-backend-test: ## Run backend pytest suite (no DB or API keys required)
-	cd backend && $(PY) -m pytest
+backend-test: ## Run backend unit tests (no DB or API keys required)
+	cd backend && $(PY) -m pytest -m "not integration"
+
+TEST_DATABASE_URL ?= postgresql+asyncpg://ambient:ambient@localhost:5433/ambient_test
+backend-itest: ## Run integration tests against a real DB (recreates TEST_DATABASE_URL; name must contain "test")
+	cd backend && TEST_DATABASE_URL=$(TEST_DATABASE_URL) $(PY) -m pytest -m integration tests/integration -v
 
 frontend-check: ## Lint, typecheck and unit-test the frontend
 	cd frontend && npm run lint && npm run typecheck && npm run test
