@@ -4,6 +4,9 @@ Contract: factual medical/product claims come ONLY from `evidence`. If evidence 
 insufficient the generator must say so (insufficient_evidence=True) rather than improvise.
 """
 
+from __future__ import annotations
+
+import re
 from typing import Protocol
 
 from pydantic import BaseModel, Field
@@ -15,6 +18,9 @@ from app.schemas.conversation import ConversationContext
 from app.schemas.diff import SemanticDiff
 from app.schemas.enums import IntentType
 from app.schemas.interaction import TimelineEntry
+
+_CITE_BLOCK = re.compile(r"\[([^\]]+)\]")
+_SPEECH_MAX_WORDS = 45
 
 
 class GenerationRequest(BaseModel):
@@ -53,9 +59,49 @@ def _format_evidence(evidence: list[EvidenceReference]) -> str:
     )
 
 
-class GeminiResponseGenerator:
-    """TODO(ai-rag): evaluate prompts on the demo script; post-check that every [E#] in `text` exists."""
+def enforce_grounding_guards(answer: GeneratedAnswer, evidence: list[EvidenceReference]) -> GeneratedAnswer:
+    """Post-conditions: valid citations only, short speech without brackets, force insufficient when empty."""
+    valid_ids = {e.id for e in evidence}
 
+    def _rewrite_cite(match: re.Match[str]) -> str:
+        ids = re.findall(r"E\d+", match.group(1))
+        keep = [i for i in ids if i in valid_ids]
+        return "".join(f"[{i}]" for i in keep)
+
+    text = _CITE_BLOCK.sub(_rewrite_cite, answer.text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    cited = re.findall(r"\[(E\d+)\]", text)
+    # Prefer model-reported ids that still exist, then citations found in text.
+    cited_ids = [i for i in answer.cited_evidence_ids if i in valid_ids]
+    for cid in cited:
+        if cid not in cited_ids:
+            cited_ids.append(cid)
+
+    speech = answer.speech_text or ""
+    speech = re.sub(r"\[.*?\]", "", speech)
+    speech = re.sub(r"[\[\]{}<>]", "", speech)
+    speech = re.sub(r"\s{2,}", " ", speech).strip()
+    words = speech.split()
+    if len(words) > _SPEECH_MAX_WORDS:
+        speech = " ".join(words[:_SPEECH_MAX_WORDS]).rstrip(",;:") + "."
+
+    insufficient = answer.insufficient_evidence or not evidence
+    if not evidence:
+        if not text:
+            text = "The available approved resources do not address that question."
+        if not speech:
+            speech = text
+
+    return GeneratedAnswer(
+        text=text,
+        speech_text=speech,
+        insufficient_evidence=insufficient,
+        cited_evidence_ids=cited_ids,
+        suggested_followups=answer.suggested_followups[:4],
+    )
+
+
+class GeminiResponseGenerator:
     def __init__(self, client: GeminiClient) -> None:
         self.client = client
 
@@ -87,12 +133,7 @@ class GeminiResponseGenerator:
             operation="gemini.generate",
             timings=timings,
         )
-        # Guardrail: never return an evidence-free factual answer.
-        if not request.evidence and not answer.insufficient_evidence:
-            answer.insufficient_evidence = True
-        valid_ids = {e.id for e in request.evidence}
-        answer.cited_evidence_ids = [i for i in answer.cited_evidence_ids if i in valid_ids]
-        return answer
+        return enforce_grounding_guards(answer, request.evidence)
 
 
 def _first_sentence(text: str, max_len: int = 220) -> str:

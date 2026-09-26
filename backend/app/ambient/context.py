@@ -31,8 +31,8 @@ class ResolvedQuery(BaseModel):
 
 
 class ContextResolver:
-    """Deterministic resolution. TODO(ai-rag): fall back to Gemini query rewriting for
-    ambiguous references ("that trial", "the older one")."""
+    """Deterministic resolution first; prefers IntentResult.rewritten_query when present
+    (Gemini or mock rewrite) for ambiguous elliptical follow-ups."""
 
     def resolve(self, query: str, intent: IntentResult, ctx: ConversationContext) -> ResolvedQuery:
         product = intent.product
@@ -48,6 +48,7 @@ class ContextResolver:
         if inferred and product:
             entities.insert(0, ExtractedEntity(name=product, type=EntityType.PRODUCT))
 
+        # Prefer model/mock rewrite when product/topic were ambiguous or elliptical.
         resolved = intent.rewritten_query or query
         if inferred and product and product.lower() not in resolved.lower():
             resolved = f"{product}: {resolved}"

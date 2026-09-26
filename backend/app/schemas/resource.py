@@ -35,8 +35,9 @@ class ResourceDetail(ResourceRead):
 
 
 class ChunkHit(Schema):
-    """A chunk returned by the vector store with its raw similarity and parent resource."""
+    """A chunk returned by vector/lexical search with scores and parent resource."""
 
     chunk: ResourceChunkRead
     resource: ResourceRead
-    similarity: float
+    similarity: float = 0.0
+    lexical_score: float = 0.0

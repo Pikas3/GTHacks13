@@ -67,7 +67,7 @@ class MockIONService:
     async def get_recommended_resource(self, hcp_id: UUID, limit: int = 3) -> list[Recommendation]:
         """Newest unseen resources for the HCP's highest-affinity products.
 
-        TODO(ai-rag): Replace with retrieval-based recommendation using topic affinities.
+        Affinity-based tip for the Impiricus panel; retrieval personalization lives in HybridResourceRetriever.
         """
         affinities = await self.get_topic_affinities(hcp_id)
         viewed = await self.interactions.viewed_resource_ids(hcp_id)

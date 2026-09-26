@@ -3,6 +3,8 @@
 `IntentClassifier` is the contract; the orchestrator never knows which implementation it gets.
 """
 
+from __future__ import annotations
+
 import re
 from typing import Protocol
 
@@ -33,7 +35,6 @@ class GeminiIntentClassifier:
             last_intent=context.last_intent or "-",
             query=query,
         )
-        # TODO(ai-rag): add few-shot examples and evaluate against tests/fixtures of demo queries.
         return await self.client.generate_structured(
             prompt=prompt,
             schema=IntentResult,
@@ -45,21 +46,39 @@ class GeminiIntentClassifier:
 
 
 _PATTERNS: list[tuple[IntentType, re.Pattern[str]]] = [
-    (IntentType.SHOW_SOURCE, re.compile(r"\b(show|open|see)\b.*\b(source|evidence|reference|document)\b|\bsource\b")),
+    (
+        IntentType.SHOW_SOURCE,
+        re.compile(
+            r"\b(show|open|see)\b.*\b(source|evidence|reference|document)\b"
+            r"|\bsource\b|\bwhere'?s that from\b|\bwhere is that from\b|\bwhere did (that|this) come from\b"
+        ),
+    ),
     (
         IntentType.WHATS_NEW,
-        re.compile(r"\bwhat'?s new\b|\bwhat is new\b|\bchanged?\b|\bupdates?\b|\bsince i last\b|\blatest\b"),
+        re.compile(
+            r"\bwhat'?s new\b|\bwhat is new\b|\banything new\b|\bwhat'?s different\b|\bwhat is different\b"
+            r"|\bchanged?\b|\bupdates?\b|\bsince i last\b|\blatest\b|\bnew on\b|\bin the latest (label|pi|version)\b"
+        ),
     ),
     (
         IntentType.RECALL_HISTORY,
-        re.compile(r"\bwhat did i\b|\blast time\b|\bpreviously\b|\bmy history\b|\bi looked at\b"),
+        re.compile(
+            r"\bwhat did i\b|\blast time\b|\bpreviously\b|\bmy history\b|\bi looked at\b"
+            r"|\bremind me what i (read|looked|saw|reviewed)\b|\bwhat (did|have) i (read|looked|seen|reviewed)\b"
+        ),
     ),
     (IntentType.COMPARE, re.compile(r"\bcompare\b|\bversus\b|\bvs\.?\b|\bdifference between\b")),
     (
         IntentType.RESOURCE_SEARCH,
         re.compile(r"\bfind\b|\bis there a (guide|resource|document)\b|\bresources? (on|for|about)\b"),
     ),
-    (IntentType.FOLLOW_UP, re.compile(r"^\s*(what|how) about\b|^\s*and\b|^\s*what else\b")),
+    (
+        IntentType.FOLLOW_UP,
+        re.compile(
+            r"^\s*(what|how) about\b|^\s*and\b|^\s*what else\b|^\s*and for\b"
+            r"|\bfor kidney\b|\bfor renal\b"
+        ),
+    ),
 ]
 
 
@@ -70,6 +89,20 @@ def extract_entities(query: str) -> list[ExtractedEntity]:
         if any(re.search(rf"\b{re.escape(a)}\b", q) for a in aliases):
             found.append(ExtractedEntity(name=canonical, type=etype))
     return found
+
+
+def _rewrite_follow_up(query: str, context: ConversationContext, entities: list[ExtractedEntity]) -> str | None:
+    """Build a standalone query when the utterance depends on conversation state."""
+    product = next((e.name for e in entities if e.type == EntityType.PRODUCT), None) or context.active_entity
+    topic = next((e.name for e in entities if e.type != EntityType.PRODUCT), None) or context.active_topic
+    if not product:
+        return None
+    q = query.strip()
+    if product.lower() in q.lower() and (not topic or topic.lower() in q.lower()):
+        return None
+    if topic and topic.lower() not in q.lower():
+        return f"{product}: {q.rstrip('?')} ({topic})?"
+    return f"{product}: {q}"
 
 
 class MockIntentClassifier:
@@ -94,6 +127,10 @@ class MockIntentClassifier:
             temporal = TemporalReference.RECENT
 
         topic = next((e.name for e in entities if e.type != EntityType.PRODUCT), None)
+        rewritten = None
+        if intent in {IntentType.FOLLOW_UP, IntentType.QUESTION_ANSWERING, IntentType.WHATS_NEW}:
+            rewritten = _rewrite_follow_up(query, context, entities)
+
         return IntentResult(
             intent=intent,
             entities=entities,
@@ -101,4 +138,5 @@ class MockIntentClassifier:
             temporal_reference=temporal,
             requires_history=intent in {IntentType.WHATS_NEW, IntentType.RECALL_HISTORY},
             requires_retrieval=intent not in {IntentType.RECALL_HISTORY, IntentType.UNKNOWN},
+            rewritten_query=rewritten,
         )

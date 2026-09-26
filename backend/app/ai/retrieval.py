@@ -4,9 +4,12 @@ The retriever receives a `RetrievalPlan` (built by the orchestrator's context re
 returns ranked `RetrievalResult`s. Ranking rules live HERE, never in API handlers.
 """
 
+from __future__ import annotations
+
 import math
 from datetime import UTC, datetime
 from typing import Protocol
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -16,8 +19,26 @@ from app.db.repositories.interfaces import ResourceRepository
 from app.observability import timed
 from app.schemas.ambient import HCPContext
 from app.schemas.conversation import ConversationContext
+from app.schemas.enums import ResourceType
 from app.schemas.resource import ChunkHit
 from app.schemas.retrieval import RetrievalPlan, RetrievalResult, ScoreBreakdown
+
+# Preference key → resource types / section keywords that should be boosted.
+_PREF_RESOURCE_TYPES: dict[str, frozenset[ResourceType]] = {
+    "clinical_evidence": frozenset({ResourceType.CLINICAL_STUDY}),
+    "long_term_outcomes": frozenset({ResourceType.CLINICAL_STUDY}),
+    "patient_access": frozenset({ResourceType.ACCESS_GUIDE}),
+    "patient_resources": frozenset({ResourceType.EDUCATIONAL_RESOURCE, ResourceType.ACCESS_GUIDE}),
+    "dosing_information": frozenset({ResourceType.PRESCRIBING_INFORMATION}),
+    "safety": frozenset({ResourceType.PRESCRIBING_INFORMATION, ResourceType.EDUCATIONAL_RESOURCE}),
+}
+_PREF_SECTION_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "dosing_information": ("dosing", "dose", "administration", "titration"),
+    "safety": ("safety", "adverse", "warning", "contraindication"),
+    "patient_access": ("access", "coverage", "prior authorization", "copay"),
+    "clinical_evidence": ("efficacy", "endpoint", "trial", "study"),
+    "long_term_outcomes": ("long-term", "follow-up", "durability", "ltfu"),
+}
 
 
 class ResourceRetriever(Protocol):
@@ -33,15 +54,18 @@ class ResourceRetriever(Protocol):
 class RankingWeights(BaseModel):
     """Hackathon heuristic weights. Tune freely; keep them in one place."""
 
-    semantic: float = 0.50
-    entity_match: float = 0.15
-    topic_match: float = 0.15
-    recency: float = 0.05
-    interest: float = 0.05
+    semantic: float = 0.40
+    lexical: float = 0.12
+    entity_match: float = 0.12
+    topic_match: float = 0.16
+    preference: float = 0.08
+    recency: float = 0.04
+    interest: float = 0.04
     previously_viewed: float = -0.03  # slight preference for unseen material
-    new_since_last_view: float = 0.13
+    new_since_last_view: float = 0.12
     recency_half_life_days: float = 180.0
     max_chunks_per_resource: int = 2
+    rrf_k: int = 60
 
 
 def _topic_terms(topic: str | None) -> tuple[str, ...]:
@@ -51,13 +75,49 @@ def _topic_terms(topic: str | None) -> tuple[str, ...]:
     return (topic.lower(), *aliases)
 
 
-class HybridResourceRetriever:
-    """pgvector candidate generation + lightweight personalized re-ranking.
+def _topic_match(haystack: str, section: str | None, topic: str | None) -> float:
+    """1.0 exact section==topic, 0.85 full topic phrase in text, else alias hit."""
+    if not topic:
+        return 0.0
+    topic_l = topic.lower()
+    section_l = (section or "").lower()
+    if section_l == topic_l:
+        return 1.0
+    if topic_l in haystack:
+        return 0.85
+    return 1.0 if any(t in haystack for t in _topic_terms(topic)) else 0.0
 
-    TODO(ai-rag): Implement personalized hybrid retrieval ranking — add lexical/BM25 scoring
-    (Postgres full-text), learn weights from demo queries, and use HCP preferences
-    (e.g. `clinical_evidence` vs `patient_access`) to boost resource types.
-    """
+
+def _rrf_scores(ranked_lists: list[list[ChunkHit]], k: int) -> dict[UUID, float]:
+    """Reciprocal-rank fusion over chunk ids."""
+    scores: dict[UUID, float] = {}
+    for hits in ranked_lists:
+        for rank, hit in enumerate(hits, start=1):
+            scores[hit.chunk.id] = scores.get(hit.chunk.id, 0.0) + 1.0 / (k + rank)
+    return scores
+
+
+def _preference_boost(hit: ChunkHit, ctx: HCPContext) -> float:
+    if not ctx.preferences:
+        return 0.0
+    section = (hit.chunk.section or "").lower()
+    text = hit.chunk.text.lower()
+    haystack = f"{section} {text}"
+    best = 0.0
+    for pref in ctx.preferences:
+        key = pref.key.lower()
+        types = _PREF_RESOURCE_TYPES.get(key)
+        type_hit = 1.0 if types and hit.resource.resource_type in types else 0.0
+        keywords = _PREF_SECTION_KEYWORDS.get(key, ())
+        section_hit = 1.0 if keywords and any(kw in haystack for kw in keywords) else 0.0
+        signal = max(type_hit, section_hit * 0.85)
+        if signal > 0:
+            best = max(best, pref.weight * signal)
+    return best
+
+
+class HybridResourceRetriever:
+    """pgvector + lexical candidate generation, RRF fusion, personalized re-ranking."""
 
     def __init__(
         self,
@@ -81,15 +141,41 @@ class HybridResourceRetriever:
     ) -> list[RetrievalResult]:
         query_text = " ".join(filter(None, [plan.query, plan.product, plan.topic]))
         embedding = await self.embedder.embed_query(query_text, timings=timings)
+        search_kwargs = dict(
+            limit=self.candidate_pool,
+            product=plan.product,
+            published_after=plan.published_after,
+            exclude_superseded=not plan.include_superseded,
+        )
         with timed("retrieval.vector_search", timings, strategy=plan.strategy):
-            hits = await self.resources.vector_search(
-                embedding,
-                limit=self.candidate_pool,
-                product=plan.product,
-                published_after=plan.published_after,
-                exclude_superseded=not plan.include_superseded,
+            vector_hits = await self.resources.vector_search(embedding, **search_kwargs)
+        with timed("retrieval.lexical_search", timings, strategy=plan.strategy):
+            lexical_hits = await self.resources.lexical_search(query_text, **search_kwargs)
+
+        by_id: dict[UUID, ChunkHit] = {h.chunk.id: h for h in vector_hits}
+        for h in lexical_hits:
+            by_id.setdefault(h.chunk.id, h)
+
+        rrf = _rrf_scores([vector_hits, lexical_hits], self.weights.rrf_k)
+        # Normalize RRF into ~[0,1] using the theoretical max of two rank-1 contributions.
+        rrf_ceil = 2.0 / (self.weights.rrf_k + 1)
+        fused: list[ChunkHit] = []
+        for chunk_id, rrf_score in sorted(rrf.items(), key=lambda kv: kv[1], reverse=True):
+            hit = by_id[chunk_id]
+            fused.append(
+                ChunkHit(
+                    chunk=hit.chunk,
+                    resource=hit.resource,
+                    similarity=max(hit.similarity, 0.0),
+                    lexical_score=min(rrf_score / rrf_ceil, 1.0) if rrf_ceil else 0.0,
+                )
             )
-        ranked = sorted((self._score(h, plan, hcp_context) for h in hits), key=lambda r: r.score, reverse=True)
+
+        ranked = sorted(
+            (self._score(h, plan, hcp_context) for h in fused),
+            key=lambda r: r.score,
+            reverse=True,
+        )
         return self._diversify(ranked, plan.limit)
 
     def _score(self, hit: ChunkHit, plan: RetrievalPlan, ctx: HCPContext) -> RetrievalResult:
@@ -100,20 +186,25 @@ class HybridResourceRetriever:
         last_seen = ctx.last_entity_review.timestamp if ctx.last_entity_review else None
         viewed = resource.id in ctx.viewed_resource_ids
         is_new = bool(last_seen and resource.published_at > last_seen)
+        pref = _preference_boost(hit, ctx)
 
         b = ScoreBreakdown(
             semantic=max(hit.similarity, 0.0),
+            lexical=hit.lexical_score,
             entity_match=1.0 if plan.product and resource.product.lower() == plan.product.lower() else 0.0,
             recency=math.exp(-age_days / w.recency_half_life_days),
             interest=max(ctx.interest_score(resource.product), ctx.interest_score(plan.topic)),
+            preference=pref,
             previously_viewed=1.0 if viewed else 0.0,
             new_since_last_view=1.0 if is_new else 0.0,
         )
-        topic_match = 1.0 if any(t in haystack for t in _topic_terms(plan.topic)) else 0.0
+        topic_match = _topic_match(haystack, chunk.section, plan.topic)
         score = (
             w.semantic * b.semantic
+            + w.lexical * b.lexical
             + w.entity_match * b.entity_match
             + w.topic_match * topic_match
+            + w.preference * b.preference
             + w.recency * b.recency
             + w.interest * b.interest
             + w.previously_viewed * b.previously_viewed
