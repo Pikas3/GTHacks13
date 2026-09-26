@@ -63,6 +63,7 @@ export default function AmbientPage() {
           <VoiceOrb
             state={convo.state}
             disabled={!hcp.selectedId}
+            level={convo.level}
             audioLevel={convo.audioLevel}
             hasLiveAudio={convo.hasLiveAudio}
             errorMessage={pageError ? (ERROR_MESSAGE[pageError.code] ?? pageError.message) : null}

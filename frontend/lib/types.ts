@@ -209,6 +209,15 @@ export interface SynthesizedSpeech {
   isPlaceholder: boolean;
 }
 
+/** Response from POST /audio/speech — stream via GET /audio/speech/{speech_id}. */
+export interface SpeechHandle {
+  speech_id: string;
+  provider: string;
+  media_type: string;
+  is_placeholder: boolean;
+  expires_in_s: number;
+}
+
 export interface Recommendation {
   resource: Resource;
   reason: string;

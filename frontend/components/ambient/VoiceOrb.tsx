@@ -2,6 +2,7 @@
 
 /**
  * Central push-to-talk orb. Visual only: state comes from useConversation.
+ * Optional `level` (0–1) from the voice recorder analyser drives a subtle scale pulse.
  * Speaking waveform uses live AnalyserNode amplitude when available; otherwise a synthetic loop.
  */
 import { motion, useReducedMotion, type TargetAndTransition } from "framer-motion";
@@ -28,11 +29,12 @@ const ORB_GRADIENT: Record<OrbState, string> = {
 
 function orbAnimation(state: OrbState, reduced: boolean, liveScale: number): TargetAndTransition {
   if (reduced) return { scale: 1 };
+  const boost = 1 + Math.min(0.14, level * 0.22);
   switch (state) {
     case "requesting_permission":
       return { opacity: [0.7, 1, 0.7], transition: { duration: 1.2, repeat: Infinity } };
     case "listening":
-      return { scale: [1, 1.08, 1], transition: { duration: 1.1, repeat: Infinity } };
+      return { scale: [1, 1.08 * boost, 1], transition: { duration: 1.1, repeat: Infinity } };
     case "thinking":
       return { scale: [1, 1.05, 1], transition: { duration: 1.6, repeat: Infinity } };
     case "transcribing":
@@ -101,6 +103,8 @@ function SpeakingWave({ level, live, reduced }: { level: number; live: boolean; 
 export interface VoiceOrbProps {
   state: OrbState;
   disabled?: boolean;
+  /** Optional 0–1 mic/TTS level from the voice workstream analyser. */
+  level?: number;
   audioLevel?: number;
   hasLiveAudio?: boolean;
   errorMessage?: string | null;
@@ -109,6 +113,7 @@ export interface VoiceOrbProps {
   onStopSpeaking: () => void;
 }
 
+export function VoiceOrb({ state, disabled, level = 0, onPressStart, onPressEnd, onStopSpeaking }: VoiceOrbProps) {
 export function VoiceOrb({
   state,
   disabled,
@@ -177,6 +182,7 @@ export function VoiceOrb({
           onBlur={onPressEnd}
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
+          animate={orbAnimation(state, reduced, level)}
           animate={orbAnimation(state, reduced, liveScale)}
           whileTap={{ scale: 0.97 }}
           className={cn(
