@@ -8,12 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.config import Settings
 
 
-def create_engine(settings: Settings) -> AsyncEngine:
+def create_engine(settings: Settings, *, for_migrations: bool = False) -> AsyncEngine:
+    """Engine tuned for both local compose and Tiger Data cloud (SSL, small pool, recycling,
+    server-side statement_timeout). `for_migrations` disables the statement timeout."""
     return create_async_engine(
         settings.async_database_url,
         echo=settings.db_echo,
         pool_pre_ping=True,
-        connect_args=settings.database_connect_args,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_recycle=settings.db_pool_recycle_s,
+        connect_args=settings.database_connect_args(for_migrations=for_migrations),
     )
 
 
@@ -32,9 +37,16 @@ async def session_scope(factory: async_sessionmaker[AsyncSession]) -> AsyncItera
             raise
 
 
+async def detect_extension_versions(engine: AsyncEngine) -> dict[str, str]:
+    """Installed versions of the extensions we care about, e.g. {"timescaledb": "2.22.1", "vector": "0.8.0"}."""
+    async with engine.connect() as conn:
+        rows = await conn.execute(
+            text("SELECT extname, extversion FROM pg_extension WHERE extname IN ('timescaledb', 'vector')")
+        )
+        return {name: version for name, version in rows}
+
+
 async def detect_capabilities(engine: AsyncEngine) -> dict[str, bool]:
     """Which Tiger Data / Postgres extensions are installed. Used for graceful degradation."""
-    async with engine.connect() as conn:
-        rows = await conn.execute(text("SELECT extname FROM pg_extension WHERE extname IN ('timescaledb', 'vector')"))
-        installed = {r[0] for r in rows}
+    installed = await detect_extension_versions(engine)
     return {"timescaledb": "timescaledb" in installed, "pgvector": "vector" in installed}

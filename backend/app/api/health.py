@@ -31,6 +31,7 @@ async def health(container: ServiceContainer = Depends(get_container)) -> Health
     try:
         async with container.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
+        await container.ensure_capabilities()
     except Exception as exc:  # report, don't raise
         logger.warning("health: database unavailable", extra={"error": type(exc).__name__})
         db_status = "unavailable"

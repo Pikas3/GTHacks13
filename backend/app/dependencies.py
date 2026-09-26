@@ -27,7 +27,7 @@ from app.db.repositories.conversation_repository import SqlConversationRepositor
 from app.db.repositories.hcp_repository import SqlHCPRepository
 from app.db.repositories.interaction_repository import SqlInteractionRepository
 from app.db.repositories.resource_repository import SqlResourceRepository
-from app.db.session import create_engine, create_session_factory, session_scope
+from app.db.session import create_engine, create_session_factory, detect_capabilities, session_scope
 from app.impiricus.mock_ion import MockIONService
 from app.voice.elevenlabs_stt import ElevenLabsSTTProvider
 from app.voice.elevenlabs_tts import ElevenLabsTTSProvider
@@ -101,6 +101,12 @@ class ServiceContainer:
             tts=tts,
         )
 
+    async def ensure_capabilities(self) -> dict[str, bool]:
+        """Detect extensions lazily if the DB was unreachable at startup (e.g. cloud DB woke up late)."""
+        if not self.capabilities:
+            self.capabilities = await detect_capabilities(self.engine)
+        return self.capabilities
+
     async def aclose(self) -> None:
         await self.http.aclose()
         await self.engine.dispose()
@@ -139,9 +145,10 @@ class Repositories:
     conversations: SqlConversationRepository
 
 
-def get_repositories(
+async def get_repositories(
     db: AsyncSession = Depends(get_db), container: ServiceContainer = Depends(get_container)
 ) -> Repositories:
+    await container.ensure_capabilities()
     return Repositories(
         hcps=SqlHCPRepository(db),
         resources=SqlResourceRepository(db),
