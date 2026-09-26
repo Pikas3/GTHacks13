@@ -1,0 +1,115 @@
+[
+  {
+    "id": "demo-whats-new-since",
+    "query": "What's changed with Novara since I last looked at it?",
+    "context": {},
+    "expected": {
+      "intent": "WHATS_NEW",
+      "product": "Novara",
+      "temporal_reference": "last_interaction"
+    }
+  },
+  {
+    "id": "paraphrase-anything-new",
+    "query": "anything new on Novara?",
+    "context": {},
+    "expected": {
+      "intent": "WHATS_NEW",
+      "product": "Novara"
+    }
+  },
+  {
+    "id": "paraphrase-latest-label",
+    "query": "what's different in the latest label?",
+    "context": {"active_entity": "Novara"},
+    "expected": {
+      "intent": "WHATS_NEW"
+    }
+  },
+  {
+    "id": "demo-whats-new-short",
+    "query": "What's new with Novara?",
+    "context": {},
+    "expected": {
+      "intent": "WHATS_NEW",
+      "product": "Novara"
+    }
+  },
+  {
+    "id": "paraphrase-remind-history",
+    "query": "remind me what I read last time",
+    "context": {},
+    "expected": {
+      "intent": "RECALL_HISTORY"
+    }
+  },
+  {
+    "id": "demo-history",
+    "query": "What did I look at last time?",
+    "context": {},
+    "expected": {
+      "intent": "RECALL_HISTORY"
+    }
+  },
+  {
+    "id": "demo-follow-up-renal",
+    "query": "What about renal impairment?",
+    "context": {"active_entity": "Novara"},
+    "expected": {
+      "intent": "FOLLOW_UP",
+      "topic": "renal impairment"
+    }
+  },
+  {
+    "id": "paraphrase-kidney-patients",
+    "query": "and for kidney patients?",
+    "context": {"active_entity": "Novara"},
+    "expected": {
+      "intent": "FOLLOW_UP",
+      "topic": "renal impairment"
+    }
+  },
+  {
+    "id": "paraphrase-wheres-from",
+    "query": "where's that from?",
+    "context": {"active_entity": "Novara"},
+    "expected": {
+      "intent": "SHOW_SOURCE"
+    }
+  },
+  {
+    "id": "demo-show-source",
+    "query": "Show me the source.",
+    "context": {},
+    "expected": {
+      "intent": "SHOW_SOURCE"
+    }
+  },
+  {
+    "id": "demo-dosing",
+    "query": "What is the Novara dosing?",
+    "context": {},
+    "expected": {
+      "intent": "QUESTION_ANSWERING",
+      "product": "Novara",
+      "topic": "dosing"
+    }
+  },
+  {
+    "id": "product-switch-cardexa",
+    "query": "and Cardexa?",
+    "context": {"active_entity": "Novara"},
+    "expected": {
+      "intent": "FOLLOW_UP",
+      "product": "Cardexa"
+    }
+  },
+  {
+    "id": "unknown-joke",
+    "query": "Tell me a joke",
+    "context": {},
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  }
+]
