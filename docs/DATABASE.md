@@ -214,7 +214,29 @@ SELECT c.section, r.title, 1 - (c.embedding <=> :query_vec) AS similarity
 FROM resource_chunk c JOIN resource r ON r.id = c.resource_id
 WHERE r.product ILIKE 'Novara' AND r.is_approved
 ORDER BY c.embedding <=> :query_vec LIMIT 8;
+
+-- Lexical / full-text search (what ResourceRepository.lexical_search runs)
+SELECT c.section, r.title,
+       ts_rank(to_tsvector('english', coalesce(c.section,'') || ' ' || c.text),
+               websearch_to_tsquery('english', :q)) AS rank
+FROM resource_chunk c JOIN resource r ON r.id = c.resource_id
+WHERE to_tsvector('english', coalesce(c.section,'') || ' ' || c.text)
+      @@ websearch_to_tsquery('english', :q)
+  AND r.is_approved
+ORDER BY rank DESC LIMIT 8;
 ```
+
+## Proposed (AI/RAG)
+
+### ResourceRepository.lexical_search
+
+- **Method:** `lexical_search(query, *, limit, product=None, published_after=None, approved_only=True, exclude_superseded=True) -> list[ChunkHit]`
+- **Why:** Hybrid retrieval needs a lexical candidate list to fuse with pgvector via reciprocal-rank fusion before personalized re-ranking.
+- **SQL:** `to_tsvector('english', section || ' ' || text) @@ websearch_to_tsquery(...)` + `ts_rank`, same filters as `vector_search`.
+- **ChunkHit:** add optional `lexical_score: float = 0.0` (API-internal; not mirrored on AmbientResponse).
+- **ScoreBreakdown:** add `lexical` and `preference` fields for ranking diagnostics.
+
+Landed together: Protocol + `SqlResourceRepository` + `FakeResourceRepository` + `HybridResourceRetriever`.
 
 ## Integration tests
 
@@ -234,8 +256,8 @@ and drops the schema at the end.
 `make seed` runs `python -m app.ingestion.seed --reset`. It truncates everything, then loads:
 
 - `data/seed/hcps.json`: 3 synthetic HCPs with preferences and starting interests
-- `data/seed/resources/*.md`: 9 fictional resources, parsed into sections, chunked and embedded with the
-  current provider
+- `data/seed/resources/*.md`: fictional resources (incl. Novara/Cardexa PI version pairs and Lumetrex
+  access), parsed into sections, chunked and embedded with the current provider
 - `data/seed/history.json`: prior events (Dr. Morgan: PI v1 view on 2026-06-14, "long-term outcomes" query
   on 2026-06-14, Access Guide view on 2026-07-02)
 

@@ -5,6 +5,7 @@ Lets us test services and the orchestrator without a database or API keys.
 
 import json
 import math
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -165,6 +166,37 @@ class FakeResourceRepository:
             for c, v in self.chunks[rid]
         ]
         return sorted(hits, key=lambda h: h.similarity, reverse=True)[:limit]
+
+    async def lexical_search(
+        self,
+        query: str,
+        *,
+        limit: int,
+        product: str | None = None,
+        published_after: datetime | None = None,
+        approved_only: bool = True,
+        exclude_superseded: bool = True,
+    ) -> list[ChunkHit]:
+        tokens = {t for t in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(t) > 2}
+        if not tokens:
+            return []
+        superseded = {r.supersedes_resource_id for r in self.resources.values() if r.supersedes_resource_id}
+        scored: list[ChunkHit] = []
+        for rid, r in self.resources.items():
+            if product and r.product.lower() != product.lower():
+                continue
+            if published_after is not None and r.published_at <= published_after:
+                continue
+            if exclude_superseded and rid in superseded:
+                continue
+            if approved_only and not r.is_approved:
+                continue
+            for c, _ in self.chunks[rid]:
+                hay = f"{c.section or ''} {c.text}".lower()
+                overlap = sum(1 for t in tokens if t in hay)
+                if overlap:
+                    scored.append(ChunkHit(chunk=c, resource=r, lexical_score=float(overlap) / len(tokens)))
+        return sorted(scored, key=lambda h: h.lexical_score, reverse=True)[:limit]
 
 
 class FakeInteractionRepository:
