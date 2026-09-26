@@ -42,7 +42,7 @@ def upgrade() -> None:
             WITH NO DATA
             """
         )
-        # TODO(database): tune refresh policy for demo freshness vs. cost.
+        # Superseded: 0003 recreates this aggregate with a real-time, full-range policy.
         op.execute(
             """
             SELECT add_continuous_aggregate_policy('hcp_topic_engagement_daily',

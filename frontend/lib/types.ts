@@ -239,11 +239,36 @@ export interface EngagementSeries {
   top_entities: { entity: string; score: number; interaction_count: number }[];
 }
 
+export type TrendingWindow = "1 day" | "7 days" | "30 days" | "90 days";
+
+export interface TrendingTopic {
+  topic: string;
+  event_count: number;
+  hcp_count: number;
+  last_seen: ISODateTime;
+}
+
+/** Cross-HCP topic activity in a trailing window. */
+export interface TrendingTopics {
+  window: TrendingWindow;
+  topics: TrendingTopic[];
+}
+
+/** Everything one HCP did after `since`. */
+export interface ActivitySince {
+  hcp_id: UUID;
+  since: ISODateTime;
+  event_count: number;
+  by_type: Partial<Record<EventType, number>>;
+  events: TimelineEntry[];
+}
+
 export interface HealthStatus {
   status: "ok" | "degraded";
   database: string;
   timescaledb: boolean;
   pgvector: boolean;
+  topic_cagg: boolean;
   ai_mode: string;
   voice_mode: string;
   gemini_model: string;
