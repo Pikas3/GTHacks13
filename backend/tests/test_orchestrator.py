@@ -1,12 +1,13 @@
 import pytest
 
 from app.errors import AppError, ErrorCode
+from app.impiricus.signals import DEFAULT_HALF_LIFE_DAYS, decay_score
 from app.schemas.enums import ChangeType, EventType, InputMode, IntentType
 from tests.conftest import MORGAN_ID
 
 
 async def test_whats_new_flow_end_to_end(orchestrator, interactions, hcps) -> None:
-    novara_before = {i.entity: i.score for i in await hcps.get_interests(MORGAN_ID)}["Novara"]
+    novara_before = {i.entity: i for i in await hcps.get_interests(MORGAN_ID)}["Novara"]
 
     resp = await orchestrator.process_query(
         MORGAN_ID, None, "What's changed with Novara since I last looked at it?", InputMode.VOICE
@@ -30,7 +31,10 @@ async def test_whats_new_flow_end_to_end(orchestrator, interactions, hcps) -> No
     assert last.event_type == EventType.VOICE_QUERY and last.entity == "Novara"
     novara_signal = next(s for s in resp.signals_generated if s.entity == "Novara")
     assert novara_signal.weight == 0.08
-    assert novara_signal.new_score == pytest.approx(novara_before + 0.08)
+    decayed = decay_score(
+        novara_before.score, novara_before.last_interaction_at, novara_signal.timestamp, DEFAULT_HALF_LIFE_DAYS
+    )
+    assert novara_signal.new_score == pytest.approx(decayed + 0.08)
 
 
 async def test_follow_up_resolves_product_from_context(orchestrator) -> None:

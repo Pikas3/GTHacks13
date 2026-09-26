@@ -8,6 +8,7 @@ from datetime import datetime
 from uuid import UUID
 
 from app.schemas.enums import EntityType, EventType, IntentType
+from app.schemas.hcp import HCPInterestRead
 from app.schemas.intent import ExtractedEntity
 from app.schemas.signals import EngagementSignal
 
@@ -23,7 +24,30 @@ EVENT_WEIGHTS: dict[EventType, float] = {
 }
 
 MAX_SCORE = 1.0
-# TODO(database): add time decay (e.g. nightly job over hcp_interest) so stale interests fade.
+DEFAULT_HALF_LIFE_DAYS = 90.0
+
+
+def decay_score(score: float, last_interaction_at: datetime | None, now: datetime, half_life_days: float) -> float:
+    """Exponential decay: an interest loses half its weight every `half_life_days` without interaction.
+
+    Stored scores are "as of last_interaction_at"; decay is applied when read or updated, so no batch job
+    is needed. half_life_days <= 0 disables decay. Hackathon heuristic, not an Impiricus algorithm.
+    """
+    if half_life_days <= 0 or last_interaction_at is None:
+        return score
+    age_days = max((now - last_interaction_at).total_seconds() / 86400, 0.0)
+    return round(score * 0.5 ** (age_days / half_life_days), 4)
+
+
+def effective_interests(
+    interests: list[HCPInterestRead], now: datetime, half_life_days: float
+) -> list[HCPInterestRead]:
+    """Interests with decayed scores, highest first."""
+    decayed = [
+        i.model_copy(update={"score": decay_score(i.score, i.last_interaction_at, now, half_life_days)})
+        for i in interests
+    ]
+    return sorted(decayed, key=lambda i: i.score, reverse=True)
 
 
 def next_score(old_score: float, weight: float) -> float:
