@@ -5,5 +5,5 @@
 export const env = {
   apiBaseUrl: (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "").trim(),
   /** When true, the UI runs entirely on in-browser fixtures (lib/mockApi.ts). */
-  useMockApi: (process.env.NEXT_PUBLIC_USE_MOCK_API ?? "true").trim().toLowerCase() === "true",
+  useMockApi: (process.env.NEXT_PUBLIC_USE_MOCK_API ?? "").trim().toLowerCase() === "true",
 } as const;

@@ -2,8 +2,7 @@
 
 /**
  * Central push-to-talk orb. Visual only: state comes from useConversation.
- * Optional `level` (0–1) from the voice recorder analyser drives a subtle scale pulse.
- * Speaking waveform uses live AnalyserNode amplitude when available; otherwise a synthetic loop.
+ * Optional `level` (mic, 0–1) and `audioLevel` (TTS, 0–1) drive listening / speaking motion.
  */
 import { motion, useReducedMotion, type TargetAndTransition } from "framer-motion";
 import { Loader2, Mic, Sparkles, TriangleAlert } from "lucide-react";
@@ -27,21 +26,26 @@ const ORB_GRADIENT: Record<OrbState, string> = {
   error: "from-rose-400/80 via-rose-500/70 to-orange-400/70",
 };
 
-function orbAnimation(state: OrbState, reduced: boolean, liveScale: number): TargetAndTransition {
+function orbAnimation(
+  state: OrbState,
+  reduced: boolean,
+  micLevel: number,
+  speakScale: number,
+): TargetAndTransition {
   if (reduced) return { scale: 1 };
-  const boost = 1 + Math.min(0.14, level * 0.22);
+  const micBoost = 1 + Math.min(0.14, micLevel * 0.22);
   switch (state) {
     case "requesting_permission":
       return { opacity: [0.7, 1, 0.7], transition: { duration: 1.2, repeat: Infinity } };
     case "listening":
-      return { scale: [1, 1.08 * boost, 1], transition: { duration: 1.1, repeat: Infinity } };
+      return { scale: [1, 1.08 * micBoost, 1], transition: { duration: 1.1, repeat: Infinity } };
     case "thinking":
       return { scale: [1, 1.05, 1], transition: { duration: 1.6, repeat: Infinity } };
     case "transcribing":
       return { scale: 1 };
     case "speaking":
-      return liveScale > 0
-        ? { scale: 1 + 0.1 * liveScale, transition: { duration: 0.08 } }
+      return speakScale > 0
+        ? { scale: 1 + 0.1 * speakScale, transition: { duration: 0.08 } }
         : { scale: [1, 1.04, 0.98, 1.05, 1], transition: { duration: 1.4, repeat: Infinity } };
     case "error":
       return { x: [0, -6, 6, -3, 0], transition: { duration: 0.4 } };
@@ -103,8 +107,9 @@ function SpeakingWave({ level, live, reduced }: { level: number; live: boolean; 
 export interface VoiceOrbProps {
   state: OrbState;
   disabled?: boolean;
-  /** Optional 0–1 mic/TTS level from the voice workstream analyser. */
+  /** Mic level 0–1 while listening (from the recorder analyser). */
   level?: number;
+  /** TTS playback level 0–1 while speaking. */
   audioLevel?: number;
   hasLiveAudio?: boolean;
   errorMessage?: string | null;
@@ -113,10 +118,10 @@ export interface VoiceOrbProps {
   onStopSpeaking: () => void;
 }
 
-export function VoiceOrb({ state, disabled, level = 0, onPressStart, onPressEnd, onStopSpeaking }: VoiceOrbProps) {
 export function VoiceOrb({
   state,
   disabled,
+  level = 0,
   audioLevel = 0,
   hasLiveAudio = false,
   errorMessage,
@@ -127,6 +132,8 @@ export function VoiceOrb({
   const reduced = useReducedMotion() ?? false;
   const holding = state === "listening" || state === "requesting_permission";
   const [holdProgress, setHoldProgress] = useState(0);
+  const speakScale = state === "speaking" && hasLiveAudio && !reduced ? audioLevel : 0;
+  const label = state === "error" && errorMessage ? errorMessage : ORB_STATE_LABEL[state];
 
   useEffect(() => {
     if (state !== "listening") return;
@@ -148,14 +155,11 @@ export function VoiceOrb({
     }
   };
   const onKeyUp = (e: KeyboardEvent) => {
-    if (e.key === " " || e.key === "Enter") {
+    if ((e.key === " " || e.key === "Enter") && holding) {
       e.preventDefault();
       onPressEnd();
     }
   };
-
-  const liveScale = state === "speaking" && hasLiveAudio && !reduced ? audioLevel : 0;
-  const label = state === "error" && errorMessage ? errorMessage : ORB_STATE_LABEL[state];
 
   return (
     <div className="flex flex-col items-center gap-5">
@@ -177,13 +181,11 @@ export function VoiceOrb({
             if (state === "speaking") onStopSpeaking();
             else onPressStart();
           }}
-          onPointerUp={onPressEnd}
-          onPointerLeave={onPressEnd}
-          onBlur={onPressEnd}
+          onPointerUp={() => holding && onPressEnd()}
+          onPointerLeave={() => holding && onPressEnd()}
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
-          animate={orbAnimation(state, reduced, level)}
-          animate={orbAnimation(state, reduced, liveScale)}
+          animate={orbAnimation(state, reduced, level, speakScale)}
           whileTap={{ scale: 0.97 }}
           className={cn(
             "relative grid h-48 w-48 touch-none select-none place-items-center rounded-full bg-gradient-to-br shadow-2xl outline-none focus-visible:ring-4 focus-visible:ring-primary/60 disabled:opacity-40 sm:h-56 sm:w-56",
@@ -207,11 +209,14 @@ export function VoiceOrb({
           </span>
         </motion.button>
       </div>
-      <div className="flex min-h-8 max-w-sm items-center justify-center gap-3 px-2 text-center text-sm text-muted-foreground" aria-live="polite">
+      <div
+        className="flex min-h-8 max-w-sm items-center justify-center gap-3 px-2 text-center text-sm text-muted-foreground"
+        aria-live="polite"
+      >
         <ListeningIndicator
           active={state === "listening" || state === "speaking"}
           tone={state === "speaking" ? "speaking" : "listening"}
-          level={state === "speaking" && hasLiveAudio ? audioLevel : null}
+          level={state === "speaking" && hasLiveAudio ? audioLevel : state === "listening" ? level : null}
           reduced={reduced}
         />
         <span>{label}</span>
