@@ -134,7 +134,7 @@ export function createMockApi(): AmbientApi {
       const res: AmbientResponse = {
         session_id: body.session_id ?? crypto.randomUUID(),
         query: body.query,
-        resolved_query: body.query,
+        resolved_query: intent === "FOLLOW_UP" && activeEntity ? `${activeEntity}: ${body.query}` : body.query,
         intent,
         entities: activeEntity ? [{ name: activeEntity, type: "PRODUCT" }] : [],
         response: { text, speech_text: text.replace(/\s*\[E\d+\]/g, ""), insufficient_evidence: ev.length === 0 && intent !== "RECALL_HISTORY" },

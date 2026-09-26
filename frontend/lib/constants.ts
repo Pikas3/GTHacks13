@@ -9,7 +9,7 @@ export const ORB_STATE_LABEL: Record<OrbState, string> = {
   transcribing: "Transcribing…",
   thinking: "Finding approved evidence…",
   speaking: "Speaking",
-  error: "Something went wrong",
+  error: "Something went wrong — hold to try again",
 };
 
 export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
