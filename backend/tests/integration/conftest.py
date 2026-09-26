@@ -28,7 +28,8 @@ MORGAN_ID = stable_id("hcp", "SYN-HCP-001")
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
-        if "tests/integration" in str(item.fspath):
+        path = str(item.fspath).replace("\\", "/")
+        if "tests/integration" in path:
             item.add_marker(pytest.mark.integration)
             if not TEST_DATABASE_URL:
                 item.add_marker(pytest.mark.skip(reason="TEST_DATABASE_URL not set"))
