@@ -29,13 +29,19 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    # With DB_SEARCH_PATH set, keep alembic_version in that schema too; otherwise Alembic would find
+    # public.alembic_version through the search_path and think the isolated schema is already migrated.
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table_schema=settings.db_search_path or None,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    engine = create_engine(settings)
+    engine = create_engine(settings, for_migrations=True)
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()

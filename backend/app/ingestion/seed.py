@@ -142,8 +142,8 @@ async def seed_history(session: AsyncSession, events: list[dict[str, Any]], reso
     await session.flush()
 
 
-async def run(reset: bool) -> None:
-    settings = get_settings()
+async def seed_database(settings: Settings, *, reset: bool = True) -> dict[str, uuid.UUID]:
+    """Load all seed data in one transaction. Reused by the CLI and the integration tests."""
     seed_dir = settings.data_dir / "seed"
     engine = create_engine(settings)
     factory = create_session_factory(engine)
@@ -156,6 +156,12 @@ async def run(reset: bool) -> None:
             await seed_history(session, _load_json(seed_dir / "history.json"), resource_ids)
     finally:
         await engine.dispose()
+    return resource_ids
+
+
+async def run(reset: bool) -> None:
+    settings = get_settings()
+    resource_ids = await seed_database(settings, reset=reset)
     mode = "mock" if settings.ai_is_mocked else "gemini"
     print(f"Seeded {len(resource_ids)} resources, embeddings={mode}, dim={settings.gemini_embedding_dimension}")
 

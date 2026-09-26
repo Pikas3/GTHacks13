@@ -69,7 +69,7 @@ Open `http://localhost:3000/ambient`, keep **Dr. Maya Morgan** selected, and typ
 | Backend | `make backend` (or `cd backend && .venv/bin/uvicorn app.main:app --reload`) |
 | Frontend | `make frontend` (or `cd frontend && npm run dev`) |
 | Everything in Docker | `docker compose --profile app up --build` |
-| Tiger Data cloud | set `DATABASE_URL` in `.env` to your service URL, then `make migrate seed` |
+| Tiger Data cloud | set `DATABASE_URL` in `.env` to your service URL, then `make migrate seed db-verify` (see docs/DATABASE.md) |
 
 ## Mock mode vs real providers
 
@@ -109,7 +109,8 @@ frontend reads only `NEXT_PUBLIC_*` via `frontend/lib/env.ts`. See [`.env.exampl
 
 ```bash
 make test           # everything below
-make backend-test   # pytest: 38 tests, no DB or API keys needed (in-memory fakes built from data/seed)
+make backend-test   # pytest: unit tests, no DB or API keys needed (in-memory fakes built from data/seed)
+make backend-itest  # integration: real migrations + Sql repositories in a throwaway schema (TEST_DATABASE_URL)
 make frontend-check # eslint + tsc --noEmit + vitest
 ```
 
