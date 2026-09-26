@@ -59,6 +59,7 @@ export default function AmbientPage() {
           <VoiceOrb
             state={convo.state}
             disabled={!hcp.selectedId}
+            level={convo.level}
             onPressStart={() => void convo.pressStart()}
             onPressEnd={() => void convo.pressEnd()}
             onStopSpeaking={convo.stopSpeaking}

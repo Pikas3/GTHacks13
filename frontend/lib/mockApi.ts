@@ -148,8 +148,26 @@ export function createMockApi(): AmbientApi {
       return delay(res, 700);
     },
     recordEvent: (body) => delay({ signals_generated: body.entity ? [bump(body.hcp_id, body.entity, 0.1, null)] : [] }),
-    transcribe: () => delay({ text: "What's changed with Novara since I last looked at it?", confidence: 1, language: "en", provider: "mock-frontend" }, 500),
+    transcribe: (_audio, opts) =>
+      delay(
+        {
+          text: opts?.mockText ?? "What's changed with Novara since I last looked at it?",
+          confidence: 1,
+          language: "en",
+          provider: "mock-frontend",
+        },
+        500,
+      ),
     synthesize: () => delay({ url: null, provider: "mock-frontend", isPlaceholder: true }),
+    createSpeech: () =>
+      delay({
+        speech_id: "mock-speech",
+        provider: "mock-frontend",
+        media_type: "audio/wav",
+        is_placeholder: true,
+        expires_in_s: 120,
+      }),
+    streamSpeech: async () => new Response(new Uint8Array([0]), { headers: { "x-tts-placeholder": "true", "x-tts-provider": "mock-frontend" } }),
     getSignals: (id) => delay({ hcp_id: id, signals: [...signals], affinities: [...find(id).interests] }),
     getRecommendations: (id) => delay({ hcp_id: id, recommendations: [{ resource: LTFU, reason: "Not yet viewed; Novara affinity 0.64.", score: 0.64 }] }),
     getEngagement: (id) => delay({
