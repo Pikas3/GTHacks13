@@ -21,6 +21,7 @@ async def test_whats_new_flow_end_to_end(orchestrator, interactions, hcps) -> No
     assert all(e.is_new for e in resp.evidence)
     assert "July 2, 2026" in resp.response.text
     assert resp.response.speech_text and "[E" not in resp.response.speech_text
+    assert resp.timings_ms["ambient.total"] >= resp.timings_ms["generation"]
 
     [diff] = resp.changes
     renal = next(c for c in diff.changes if c.topic == "Renal Impairment")
