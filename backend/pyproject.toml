@@ -34,6 +34,7 @@ include = ["app*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["integration: needs a real Timescale/pgvector database (TEST_DATABASE_URL)"]
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 

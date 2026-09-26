@@ -16,6 +16,7 @@ class HealthResponse(BaseModel):
     database: str
     timescaledb: bool
     pgvector: bool
+    topic_cagg: bool
     ai_mode: str
     voice_mode: str
     gemini_model: str
@@ -40,6 +41,7 @@ async def health(container: ServiceContainer = Depends(get_container)) -> Health
         database=db_status,
         timescaledb=container.capabilities.get("timescaledb", False),
         pgvector=container.capabilities.get("pgvector", False),
+        topic_cagg=container.capabilities.get("topic_cagg", False),
         ai_mode=container.ai.mode,
         voice_mode=f"stt:{container.stt.name},tts:{container.tts.name}",
         gemini_model=s.gemini_model,
