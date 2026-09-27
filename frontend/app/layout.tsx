@@ -16,9 +16,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased">
         {children}
-        <footer className="px-4 pb-4 text-center text-[11px] text-muted-foreground sm:px-8">
-          Hackathon prototype · synthetic HCPs and fictional products (Novara, Cardexa, Lumetrex) · not medical advice
-        </footer>
       </body>
     </html>
   );
