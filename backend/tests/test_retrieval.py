@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.ai.retrieval import HybridResourceRetriever, RankingWeights
-from app.schemas.ambient import HCPContext
+from app.schemas.lepius import HCPContext
 from app.schemas.conversation import ConversationContext
 from app.schemas.enums import ResourceType
 from app.schemas.hcp import HCPPreferenceRead

@@ -1,15 +1,15 @@
 # Agent prompt — Team Member C: Backend / Database (Tiger Data)
 
-You are a senior backend engineer joining a hackathon team building **Impiricus Ambient**, a
+You are a senior backend engineer joining a hackathon team building **Impiricus Lepius**, a
 voice-native, context-aware assistant for healthcare professionals (HCPs). The repository skeleton
 already runs end-to-end against a local TimescaleDB + pgvector container. Your job is to own the data
-layer and the Ambient pipeline's backbone: Tiger Data (cloud) deployment, Timescale time-series
+layer and the Lepius pipeline's backbone: Tiger Data (cloud) deployment, Timescale time-series
 features, conversation state, structured memory, personalization, the Impiricus integration mock, and
 the API — keeping every contract stable for the other three workstreams.
 
 ## Product context (read carefully)
 
-Every HCP interaction flows through `AmbientOrchestrator`: load HCP → load session → classify intent →
+Every HCP interaction flows through `LepiusOrchestrator`: load HCP → load session → classify intent →
 resolve context → load memory → retrieve evidence → generate grounded answer → store turns → update
 interest signals → record a time-series engagement event → return. The company-facing `/intelligence`
 view reads back what was learned.
@@ -26,7 +26,7 @@ hackathon heuristic (`new_score = min(1, old + event_weight)`) and must be label
 
 You own (edit freely):
 - `backend/app/db/**` (base, session, models, repositories, migrations)
-- `backend/app/ambient/**` (orchestrator, context, memory, personalization)
+- `backend/app/lepius/**` (orchestrator, context, memory, personalization)
 - `backend/app/impiricus/**` (MockIONService, signals, interfaces)
 - `backend/app/api/**`, `backend/app/main.py`, `backend/app/dependencies.py`, `backend/app/errors.py`,
   `backend/app/observability.py`
@@ -35,7 +35,7 @@ You own (edit freely):
 - Tests: `test_health.py`, `test_memory.py`, `test_signals.py`, `test_orchestrator.py`, `tests/fakes.py`
 
 Owned by others: `backend/app/ai/**` + `ingestion/` parsing/chunking (B), `backend/app/voice/**` (D),
-`frontend/**` (A). B may propose changes to your Protocols and `ambient/context.py` — review them.
+`frontend/**` (A). B may propose changes to your Protocols and `lepius/context.py` — review them.
 
 Shared contracts you are the **steward** of: `backend/app/schemas/**` ↔ `frontend/lib/types.ts`,
 `docs/API.md`, `backend/app/db/repositories/interfaces.py`, `backend/app/config.py` + `.env.example`.
@@ -45,7 +45,7 @@ Shared contracts you are the **steward** of: `backend/app/schemas/**` ↔ `front
 1. `README.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/API.md`, `docs/TEAM_OWNERSHIP.md`
 2. `backend/app/db/models/*`, `db/migrations/versions/0001_*.py`, `0002_*.py`
 3. `backend/app/db/repositories/interfaces.py` then each `Sql*Repository`
-4. `backend/app/ambient/orchestrator.py`, `memory.py`, `context.py`, `personalization.py`
+4. `backend/app/lepius/orchestrator.py`, `memory.py`, `context.py`, `personalization.py`
 5. `backend/app/impiricus/mock_ion.py`, `signals.py`
 6. `backend/app/dependencies.py`, `main.py` (lifespan, error handlers), `observability.py`
 7. `backend/tests/fakes.py`, `conftest.py`, `test_orchestrator.py`
@@ -67,11 +67,11 @@ Shared contracts you are the **steward** of: `backend/app/schemas/**` ↔ `front
 - "Since I last looked" = last event of type `REVIEW_EVENT_TYPES` = {RESOURCE_VIEW, SOURCE_OPEN,
   RESOURCE_SAVED} touching the product. Asking a question does not count as looking.
 - Signals: `EVENT_WEIGHTS` in `impiricus/signals.py`; signals are stored in `interaction_event.metadata.signals`
-  and returned in `AmbientResponse.signals_generated`.
+  and returned in `LepiusResponse.signals_generated`.
 - Normalized errors (`AppError` + handlers for SQLAlchemy/OSError/validation/unhandled);
   `/api/health` never fails and reports DB/timescale/pgvector/AI/voice modes.
 - Local DB runs on **port 5433** (the host may already have Postgres on 5432). Compose project name
-  `impiricus-ambient`.
+  `impiricus-lepius`.
 
 ## Setup & run
 
@@ -79,7 +79,7 @@ Shared contracts you are the **steward** of: `backend/app/schemas/**` ↔ `front
 make setup && make db-up migrate seed
 make backend-test          # 38 unit tests on in-memory fakes, no DB needed
 make backend               # :8000, OpenAPI at /docs
-docker compose exec db psql -U ambient -d ambient   # poke around
+docker compose exec db psql -U lepius -d lepius   # poke around
 ```
 
 ## Tasks (in priority order — stop for review after each)
@@ -122,7 +122,7 @@ docker compose exec db psql -U ambient -d ambient   # poke around
 8. **Interest decay** (`TODO(database)` in `impiricus/signals.py`): apply exponential decay on read or on
    write (e.g. half-life 30 days based on `last_interaction_at`) so stale interests fade. Keep it
    deterministic, in config, clearly labelled as a heuristic; update `test_signals.py`.
-9. **Resource saves:** `POST /api/ambient/events` with `RESOURCE_SAVED` already works (+0.15). Add
+9. **Resource saves:** `POST /api/lepius/events` with `RESOURCE_SAVED` already works (+0.15). Add
    `GET /api/hcps/{hcp_id}/saved` and tell A so a "Save" button can be added to evidence cards.
 10. **MockIONService** (`impiricus/`): keep the `IONService` Protocol as the seam to "real Impiricus".
     Add a short section in `docs/ARCHITECTURE.md` describing what a production integration would

@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/cardexa/titration
 # Cardexa Titration Field Guide (SYNTHETIC)
 
 ## Synthetic Product Notice
-Cardexa is a FICTIONAL product. This field guide summarizes demo titration steps from Study B and PI v2.0 for the Impiricus Ambient prototype.
+Cardexa is a FICTIONAL product. This field guide summarizes demo titration steps from Study B and PI v2.0 for the Impiricus Lepius prototype.
 
 ## Standard Titration Ladder
 Regimen C starts at the lowest Placeholder Unit step and climbs every 1–2 weeks if Category Delta/Epsilon symptoms stay mild in the synthetic checklist.

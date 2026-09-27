@@ -54,7 +54,7 @@ SELECT job_id, proc_name, schedule_interval FROM timescaledb_information.jobs WH
 | `DB_SEARCH_PATH` | unset | put all tables (and `alembic_version`) in your own schema, e.g. one per teammate on a shared service. Extensions stay in `public`. Create the schema first: `CREATE SCHEMA dev_alex;` |
 | `DB_USE_POOLER` | false | set `true` if `DATABASE_URL` uses Tiger's transaction-mode pooler; disables asyncpg prepared-statement caches |
 
-Every connection also sets `application_name = impiricus-ambient`, so it is easy to find in
+Every connection also sets `application_name = impiricus-lepius`, so it is easy to find in
 `pg_stat_activity`.
 
 ### Troubleshooting
@@ -233,7 +233,7 @@ ORDER BY rank DESC LIMIT 8;
 - **Method:** `lexical_search(query, *, limit, product=None, published_after=None, approved_only=True, exclude_superseded=True) -> list[ChunkHit]`
 - **Why:** Hybrid retrieval needs a lexical candidate list to fuse with pgvector via reciprocal-rank fusion before personalized re-ranking.
 - **SQL:** `to_tsvector('english', section || ' ' || text) @@ websearch_to_tsquery(...)` + `ts_rank`, same filters as `vector_search`.
-- **ChunkHit:** add optional `lexical_score: float = 0.0` (API-internal; not mirrored on AmbientResponse).
+- **ChunkHit:** add optional `lexical_score: float = 0.0` (API-internal; not mirrored on LepiusResponse).
 - **ScoreBreakdown:** add `lexical` and `preference` fields for ranking diagnostics.
 
 Landed together: Protocol + `SqlResourceRepository` + `FakeResourceRepository` + `HybridResourceRetriever`.

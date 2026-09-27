@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Design tokens (shadcn-compatible names). Ambient is dark-first. */
+/* Design tokens (shadcn-compatible names). Lepius is dark-first. */
 :root {
   --background: oklch(0.16 0.02 260);
   --foreground: oklch(0.96 0.01 260);

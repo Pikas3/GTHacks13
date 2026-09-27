@@ -1,4 +1,4 @@
-"""Ambient query contract — the primary frontend <-> backend API."""
+"""Lepius query contract — the primary frontend <-> backend API."""
 
 from datetime import datetime
 from uuid import UUID
@@ -50,26 +50,26 @@ class EvidenceReference(BaseModel):
     score: float | None = None
 
 
-class AmbientRequest(BaseModel):
+class LepiusRequest(BaseModel):
     hcp_id: UUID
     session_id: UUID | None = Field(default=None, description="Omit to start a new session.")
     query: str = Field(min_length=1, max_length=2000)
     input_mode: InputMode = InputMode.TEXT
 
 
-class AmbientAnswer(BaseModel):
+class LepiusAnswer(BaseModel):
     text: str
     speech_text: str
     insufficient_evidence: bool = False
 
 
-class AmbientResponse(BaseModel):
+class LepiusResponse(BaseModel):
     session_id: UUID
     query: str
     resolved_query: str
     intent: IntentType
     entities: list[ExtractedEntity] = Field(default_factory=list)
-    response: AmbientAnswer
+    response: LepiusAnswer
     context: ConversationContext
     evidence: list[EvidenceReference] = Field(default_factory=list)
     changes: list[SemanticDiff] = Field(default_factory=list)

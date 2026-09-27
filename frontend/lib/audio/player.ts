@@ -1,5 +1,5 @@
 /**
- * Audio playback helpers for Ambient TTS.
+ * Audio playback helpers for Lepius TTS.
  *
  * - `playObjectUrl`: buffered MP3/WAV (fallback; works everywhere).
  * - `playSpeechResponse`: consume a streaming GET body into a Blob URL, then play.

@@ -1,15 +1,15 @@
 import type { ApiErrorCode, OrbState, ResourceType } from "@/lib/types";
 
-export const APP_NAME = "Impiricus Ambient";
+export const APP_NAME = "Impiricus Lepius";
 
 export const ORB_STATE_LABEL: Record<OrbState, string> = {
-  idle: 'Hold to ask · or say "hey Ambient"',
+  idle: 'Hold to ask · or say "hey Lepius"',
   requesting_permission: "Allow microphone access…",
   listening: "Listening… say your question",
   transcribing: "Transcribing…",
   thinking: "Finding approved evidence…",
   speaking: "Speaking",
-  error: "Something went wrong — hold or say hey Ambient",
+  error: "Something went wrong — hold or say hey Lepius",
 };
 
 export const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
@@ -31,7 +31,7 @@ export const ERROR_MESSAGE: Record<ApiErrorCode, string> = {
   AUDIO_TRANSCRIPTION_FAILED: "I couldn't hear that. Try again or type your question.",
   VALIDATION_ERROR: "That request wasn't valid.",
   INTERNAL_ERROR: "Unexpected server error.",
-  NETWORK_ERROR: "Can't reach the Ambient API. Is the backend running on :8000?",
+  NETWORK_ERROR: "Can't reach the Lepius API. Is the backend running on :8000?",
 };
 
 export const SAMPLE_QUERIES = [
@@ -42,4 +42,4 @@ export const SAMPLE_QUERIES = [
   "What's new with Novara?",
 ] as const;
 
-export const SELECTED_HCP_STORAGE_KEY = "ambient.selectedHcpId";
+export const SELECTED_HCP_STORAGE_KEY = "lepius.selectedHcpId";

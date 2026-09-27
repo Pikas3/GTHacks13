@@ -2,12 +2,12 @@
 
 > Hackathon prototype. Synthetic HCPs, fictional products, no patient data.
 
-## The Ambient loop
+## The Lepius loop
 
 ```mermaid
 flowchart LR
     V[Voice input<br/>MediaRecorder] --> STT[STT<br/>ElevenLabs / mock]
-    STT --> API[Ambient API<br/>POST /api/ambient/query]
+    STT --> API[Lepius API<br/>POST /api/lepius/query]
     T[Text fallback] --> API
     API --> IC[Intent classification<br/>Gemini structured output / mock]
     IC --> CR[Context resolution<br/>session state]
@@ -32,9 +32,9 @@ flowchart TB
     ApiClient -- HTTP contracts docs/API.md --> Routes
     subgraph Backend [backend/app — FastAPI]
         Routes[api/ thin route handlers] --> DI[dependencies.py<br/>ServiceContainer]
-        DI --> Orch[ambient/orchestrator.py]
+        DI --> Orch[lepius/orchestrator.py]
         Orch --> AI[ai/ IntentClassifier · ResourceRetriever<br/>ResponseGenerator · SemanticDiffService]
-        Orch --> Amb[ambient/ ContextResolver · MemoryService<br/>PersonalizationService]
+        Orch --> Amb[lepius/ ContextResolver · MemoryService<br/>PersonalizationService]
         Orch --> ION[impiricus/ MockIONService]
         Routes --> Voice[voice/ SpeechToTextProvider · TextToSpeechProvider]
         AI --> Repos[db/repositories/ Protocols + SQL impls]
@@ -47,7 +47,7 @@ flowchart TB
 Rules that keep the workstreams decoupled:
 
 - **Route handlers are thin.** They validate input and call one service. The whole pipeline lives in
-  `AmbientOrchestrator.process_query`.
+  `LepiusOrchestrator.process_query`.
 - **Everything external is behind a Protocol** with a real and a mock implementation:
   `IntentClassifier`, `EmbeddingProvider`, `ResourceRetriever`, `ResponseGenerator`, `SemanticDiffService`,
   `SpeechToTextProvider`, `TextToSpeechProvider`, `IONService`, and the repositories in
@@ -61,7 +61,7 @@ Rules that keep the workstreams decoupled:
 
 ## Orchestrator steps
 
-`AmbientOrchestrator.process_query(hcp_id, session_id, query, input_mode)`:
+`LepiusOrchestrator.process_query(hcp_id, session_id, query, input_mode)`:
 
 | # | Step | Service |
 |---|------|---------|
@@ -77,7 +77,7 @@ Rules that keep the workstreams decoupled:
 | 10 | Store user + assistant turns | `ConversationRepository.add_turn` |
 | 11 | Build signals, update interest scores | `PersonalizationService` → `IONService.record_signal` |
 | 12 | Record the engagement event (with signals in metadata) | `InteractionRepository.record` |
-| 13 | Persist new conversation context, return `AmbientResponse` | `ContextResolver.next_context` |
+| 13 | Persist new conversation context, return `LepiusResponse` | `ContextResolver.next_context` |
 
 ### "What's changed since I last looked at it?"
 
@@ -100,7 +100,7 @@ Rules that keep the workstreams decoupled:
 - Guardrail: if there is no evidence, `insufficient_evidence` is forced on, and cited IDs are filtered to
   evidence that actually exists.
 - Superseded resource versions are excluded from retrieval unless the intent is `COMPARE`.
-- Personal memory is **structured SQL over events** (`ambient/memory.py`), not an LLM transcript dump.
+- Personal memory is **structured SQL over events** (`lepius/memory.py`), not an LLM transcript dump.
 
 ## Why Tiger Data
 
@@ -121,9 +121,9 @@ and `time_bucket` falls back to `date_trunc`. pgvector is still required.
 ## Observability
 
 `app/observability.py` emits one JSON log line per request (`request_id`, path, status, latency) and per
-timed operation (`ambient.total`, `retrieval.vector_search`, `gemini.intent`, `gemini.generate`,
+timed operation (`lepius.total`, `retrieval.vector_search`, `gemini.intent`, `gemini.generate`,
 `elevenlabs.tts`, `elevenlabs.stt`, `semantic_diff`, …) with `session_id` attached. Per-request timings are
-also returned in `AmbientResponse.timings_ms`, which is enough to build a demo latency panel. Secrets and
+also returned in `LepiusResponse.timings_ms`, which is enough to build a demo latency panel. Secrets and
 audio bytes are never logged.
 
 ## Mock-first

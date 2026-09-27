@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/lumetrex/pi-v1
 # Lumetrex Prescribing Information (SYNTHETIC)
 
 ## Synthetic Product Notice
-Lumetrex (code LMX-000) is a FICTIONAL product for the Impiricus Ambient prototype. This label is placeholder text only.
+Lumetrex (code LMX-000) is a FICTIONAL product for the Impiricus Lepius prototype. This label is placeholder text only.
 
 ## Indication
 Lumetrex is described as a once-daily placeholder therapy for "Condition Z", a fictional primary-care condition used in demos.

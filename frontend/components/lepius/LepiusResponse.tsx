@@ -7,7 +7,7 @@ import { Fragment } from "react";
 import { CitationBadge } from "@/components/evidence/CitationBadge";
 import { Badge } from "@/components/ui/badge";
 import { splitSentences } from "@/lib/sentences";
-import type { AmbientResponse as AmbientResponseT } from "@/lib/types";
+import type { LepiusResponse as LepiusResponseT } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Renders answer text, turning [E1] markers into citation badges. */
@@ -33,14 +33,14 @@ function AnswerText({ text, onCite, animate }: { text: string; onCite: (id: stri
   );
 }
 
-export interface AmbientResponseProps {
-  response: AmbientResponseT | null;
+export interface LepiusResponseProps {
+  response: LepiusResponseT | null;
   onCite: (evidenceId: string) => void;
   onFollowUp: (query: string) => void;
   disabled?: boolean;
 }
 
-export function AmbientResponse({ response, onCite, onFollowUp, disabled }: AmbientResponseProps) {
+export function LepiusResponse({ response, onCite, onFollowUp, disabled }: LepiusResponseProps) {
   const insufficient = Boolean(response?.response.insufficient_evidence);
   return (
     <AnimatePresence mode="wait">

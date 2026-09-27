@@ -6,7 +6,7 @@ from uuid import UUID
 from app.db.repositories.interfaces import InteractionRepository, ResourceRepository
 from app.impiricus.interfaces import IONService
 from app.impiricus.signals import build_signals
-from app.schemas.ambient import EngagementEventRequest
+from app.schemas.lepius import EngagementEventRequest
 from app.schemas.enums import EntityType, EventType, IntentType
 from app.schemas.intent import ExtractedEntity
 from app.schemas.interaction import InteractionEventCreate, InteractionEventRead

@@ -1,7 +1,7 @@
-/** Wake-phrase matching for "hey Ambient" (browser SpeechRecognition transcripts). */
+/** Wake-phrase matching for "hey Lepius" (browser SpeechRecognition transcripts). */
 
 const WAKE_RE =
-  /\b(?:hey|hi|hello|ok|okay)\s*[,.]?\s*ambient\b|\bambient\s*[,.]?\s*(?:hey|hi|hello)\b/i;
+  /\b(?:hey|hi|hello|ok|okay)\s*[,.]?\s*lepius\b|\blepius\s*[,.]?\s*(?:hey|hi|hello)\b/i;
 
 /** Normalize curly quotes / whitespace before matching. */
 export function normalizeWakeTranscript(text: string): string {
@@ -13,11 +13,11 @@ export function normalizeWakeTranscript(text: string): string {
     .trim();
 }
 
-/** True when the transcript contains the Ambient wake phrase. */
+/** True when the transcript contains the Lepius wake phrase. */
 export function matchesWakePhrase(text: string): boolean {
   const n = normalizeWakeTranscript(text);
   if (!n) return false;
-  return WAKE_RE.test(n) || n === "ambient" || n.includes("heyambient");
+  return WAKE_RE.test(n) || n === "lepius" || n.includes("heylepius");
 }
 
-export const WAKE_PHRASE_HINT = 'Say "hey Ambient"';
+export const WAKE_PHRASE_HINT = 'Say "hey Lepius"';

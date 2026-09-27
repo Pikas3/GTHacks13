@@ -1,13 +1,13 @@
 # Agent prompt — Team Member A: Frontend / UX
 
-You are a senior frontend engineer joining a hackathon team building **Impiricus Ambient**, a
+You are a senior frontend engineer joining a hackathon team building **Impiricus Lepius**, a
 voice-native, context-aware assistant for healthcare professionals (HCPs). The repository skeleton
 already exists and runs end-to-end. Your job is to take the frontend from "working skeleton" to a
 polished, demo-ready experience **without breaking the shared contracts** other teammates depend on.
 
 ## Product context (read carefully)
 
-Impiricus Ambient lets an HCP ask questions out loud about trusted, approved pharmaceutical resources.
+Impiricus Lepius lets an HCP ask questions out loud about trusted, approved pharmaceutical resources.
 It knows who the HCP is, remembers what they reviewed before, knows what changed since they last looked,
 answers only from cited evidence, speaks the answer, and turns every interaction into structured
 engagement signals shown in a company-facing "Intelligence" view.
@@ -16,7 +16,7 @@ It is **not** a generic chatbot, not diagnostic, not prescribing, not patient-fa
 synthetic and all products (Novara, Cardexa, Lumetrex) are fictional. The UI must keep saying so
 (the footer and "prototype" badge already do — keep them).
 
-**Design principle:** the Ambient page must NOT look like ChatGPT. No vertical bubble-chat as the main
+**Design principle:** the Lepius page must NOT look like ChatGPT. No vertical bubble-chat as the main
 interaction. The center of gravity is a large animated voice orb; the answer, evidence and context
 arrange around it.
 
@@ -35,7 +35,7 @@ Owned by others (do not edit without coordinating):
 
 Shared contracts (see "Contract changes" below):
 - `frontend/lib/types.ts` (mirrors `backend/app/schemas/*`)
-- `frontend/lib/api.ts` (the `AmbientApi` interface; you may add UI-side helpers, but endpoint shapes follow `docs/API.md`)
+- `frontend/lib/api.ts` (the `LepiusApi` interface; you may add UI-side helpers, but endpoint shapes follow `docs/API.md`)
 - `frontend/lib/env.ts`
 
 ## Read these first (in order)
@@ -44,7 +44,7 @@ Shared contracts (see "Contract changes" below):
 2. `frontend/lib/types.ts`, `frontend/lib/api.ts`, `frontend/lib/mockApi.ts`
 3. `frontend/lib/orbMachine.ts` + `frontend/tests/orbMachine.test.ts`
 4. `frontend/hooks/useConversation.ts` (the client-side pipeline), `useHCP.ts`, `useIntelligence.ts`
-5. `frontend/app/ambient/page.tsx`, `frontend/app/intelligence/page.tsx` and every component they render
+5. `frontend/app/lepius/page.tsx`, `frontend/app/intelligence/page.tsx` and every component they render
 
 ## Current state (already working — don't rebuild it)
 
@@ -54,9 +54,9 @@ Shared contracts (see "Contract changes" below):
 - ESLint 9 flat config (`eslint.config.mjs`) using `eslint-config-next` core-web-vitals + typescript.
   Note the React Compiler-era rule `react-hooks/set-state-in-effect` — existing code disables it in two
   deliberate places; prefer restructuring over more disables.
-- `/ambient`: VoiceOrb (7 states: idle, requesting_permission, listening, transcribing, thinking,
+- `/lepius`: VoiceOrb (7 states: idle, requesting_permission, listening, transcribing, thinking,
   speaking, error) driven by the pure `orbTransition` reducer; push-to-talk via pointer and Space/Enter;
-  TranscriptPanel with intent/entity chips; AmbientResponse with `[E#]` → CitationBadge; "What changed"
+  TranscriptPanel with intent/entity chips; LepiusResponse with `[E#]` → CitationBadge; "What changed"
   diff list; suggested follow-up chips; ConversationContext panel; InteractionTimeline; EvidenceDrawer
   (horizontal cards) + SourceViewer side sheet that highlights the cited chunk and records `SOURCE_OPEN`;
   a small text fallback input.
@@ -85,8 +85,8 @@ next "what's new" correctly returns "nothing new" — re-seed to replay the demo
 
 ## Tasks (in priority order — stop for review after each)
 
-### P1 — Demo-critical polish of `/ambient`
-1. **Speaking waveform** (`TODO(frontend)` in `components/ambient/VoiceOrb.tsx`). Drive the speaking
+### P1 — Demo-critical polish of `/lepius`
+1. **Speaking waveform** (`TODO(frontend)` in `components/lepius/VoiceOrb.tsx`). Drive the speaking
    animation from real audio amplitude: in `useConversation`, route the `HTMLAudioElement` through a
    `Web Audio` `AnalyserNode` (create the `AudioContext` lazily on the first user gesture to satisfy
    autoplay policies) and expose a normalized `level: number` (0–1) sampled with
@@ -109,7 +109,7 @@ next "what's new" correctly returns "nothing new" — re-seed to replay the demo
 6. Clicking a citation badge scrolls to + pulses the matching card (partially done — make it robust on
    mobile where the rail is collapsed: expand it first).
 7. "What changed" panel: make each change expandable to show `old_evidence` vs `new_evidence` side by
-   side (stacked on mobile), with `importance` badge. Data is in `AmbientResponse.changes`.
+   side (stacked on mobile), with `importance` badge. Data is in `LepiusResponse.changes`.
 8. Group evidence cards by resource when one resource contributes multiple chunks.
 
 ### P3 — Intelligence view
@@ -129,7 +129,7 @@ next "what's new" correctly returns "nothing new" — re-seed to replay the demo
 14. Keyboard: Space/Enter hold-to-talk works when the orb is focused; visible focus rings; `aria-live`
     announcements for state changes and new answers; all icon buttons have labels.
 15. Add a hidden-by-default **latency panel** (toggle with `?debug=1` or a keyboard shortcut) that renders
-    `AmbientResponse.timings_ms` — useful for the demo narrative.
+    `LepiusResponse.timings_ms` — useful for the demo narrative.
 16. Keep `lib/mockApi.ts` in sync with any UI you add so mock mode demos the same flows.
 
 ## Rules & conventions
@@ -158,7 +158,7 @@ sides update in one PR.
   in `NEXT_PUBLIC_USE_MOCK_API=true` mode. Verify in a browser, desktop and a ~375px-wide viewport,
   including keyboard-only use of the orb.
 - No console errors or React warnings during the demo flow.
-- Small commits on `feature/frontend-ambient`, each scoped to one task, with a clear message.
+- Small commits on `feature/frontend-lepius`, each scoped to one task, with a clear message.
 
 When you finish each priority, report: what changed (files), how you verified it (commands + what you
 saw in the browser), any contract proposals, and anything left as `TODO(frontend)`.

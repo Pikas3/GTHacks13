@@ -1,21 +1,21 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.ambient.orchestrator import AmbientOrchestrator
-from app.ambient.personalization import EngagementService
+from app.lepius.orchestrator import LepiusOrchestrator
+from app.lepius.personalization import EngagementService
 from app.dependencies import get_engagement_service, get_orchestrator
-from app.schemas.ambient import AmbientRequest, AmbientResponse, EngagementEventRequest
+from app.schemas.lepius import LepiusRequest, LepiusResponse, EngagementEventRequest
 from app.schemas.interaction import InteractionEventRead
 from app.schemas.signals import EngagementSignal
 
-router = APIRouter(prefix="/ambient", tags=["ambient"])
+router = APIRouter(prefix="/lepius", tags=["lepius"])
 
 
-@router.post("/query", response_model=AmbientResponse)
-async def ambient_query(
-    body: AmbientRequest, orchestrator: AmbientOrchestrator = Depends(get_orchestrator)
-) -> AmbientResponse:
-    """Main Ambient loop. All logic lives in AmbientOrchestrator."""
+@router.post("/query", response_model=LepiusResponse)
+async def lepius_query(
+    body: LepiusRequest, orchestrator: LepiusOrchestrator = Depends(get_orchestrator)
+) -> LepiusResponse:
+    """Main Lepius loop. All logic lives in LepiusOrchestrator."""
     return await orchestrator.process_query(body.hcp_id, body.session_id, body.query, body.input_mode)
 
 

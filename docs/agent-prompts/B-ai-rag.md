@@ -1,6 +1,6 @@
 # Agent prompt — Team Member B: AI / RAG
 
-You are a senior applied-AI engineer joining a hackathon team building **Impiricus Ambient**, a
+You are a senior applied-AI engineer joining a hackathon team building **Impiricus Lepius**, a
 voice-native, context-aware assistant for healthcare professionals (HCPs). The repository skeleton
 already runs end-to-end with **mock** AI. Your job is to make the AI layer real with Google Gemini —
 intent extraction, embeddings, personalized retrieval, grounded generation, and semantic diff — while
@@ -35,12 +35,12 @@ You own (edit freely):
 - Tests for the above in `backend/tests/` (`test_intent.py`, `test_retrieval.py`, `test_ingestion.py`, new files you add)
 
 Owned by others (coordinate before editing):
-- `backend/app/ambient/orchestrator.py`, `context.py`, `memory.py`, `personalization.py` — C
+- `backend/app/lepius/orchestrator.py`, `context.py`, `memory.py`, `personalization.py` — C
 - `backend/app/db/**` (models, repositories, migrations) — C
 - `backend/app/voice/**` — D; `frontend/**` — A
 
 Shared contracts (see "Contract changes"):
-- `backend/app/schemas/**` (mirrored in `frontend/lib/types.ts`), especially `intent.py`, `ambient.py`,
+- `backend/app/schemas/**` (mirrored in `frontend/lib/types.ts`), especially `intent.py`, `lepius.py`,
   `retrieval.py`, `diff.py`
 - `backend/app/db/repositories/interfaces.py` (the Protocols your retriever depends on)
 - `backend/app/config.py`, `.env.example`, `backend/app/dependencies.py`
@@ -49,9 +49,9 @@ Shared contracts (see "Contract changes"):
 
 1. `README.md`, `docs/ARCHITECTURE.md` (especially "Orchestrator steps" and "What's changed since I last
    looked"), `docs/API.md`, `docs/DATABASE.md`, `docs/DEMO_FLOW.md`
-2. `backend/app/ambient/orchestrator.py` — how your services are called and in what order
+2. `backend/app/lepius/orchestrator.py` — how your services are called and in what order
 3. Everything in `backend/app/ai/`
-4. `backend/app/ambient/context.py` (`ContextResolver`, `ResolvedQuery`) and `ambient/memory.py`
+4. `backend/app/lepius/context.py` (`ContextResolver`, `ResolvedQuery`) and `lepius/memory.py`
 5. `backend/app/dependencies.py::build_ai_providers` — where mock vs Gemini is chosen
 6. `backend/tests/fakes.py` + `conftest.py` — in-memory repos built from the real seed files;
    `test_orchestrator.py` is the end-to-end contract for the demo
@@ -109,7 +109,7 @@ and Gemini embeddings are different vector spaces — always re-seed after flipp
    "remind me what I read last time", "and for kidney patients?", "where's that from?"). Run it against
    `MockIntentClassifier` always, and against Gemini only when `RUN_LIVE_AI=1` (skip otherwise so CI needs
    no key). Improve the prompt (few-shot examples in `prompts.py`) until live accuracy is ≥ 90%.
-5. **Query rewriting fallback** (`TODO(ai-rag)` in `ambient/context.py` — coordinate with C, who owns the
+5. **Query rewriting fallback** (`TODO(ai-rag)` in `lepius/context.py` — coordinate with C, who owns the
    file): the deterministic resolver stays first; when the product/topic can't be resolved and Gemini is
    available, use `IntentResult.rewritten_query`. Add tests for "What about renal impairment?" after a
    Novara turn, and for a product switch mid-session ("and Cardexa?").
@@ -168,7 +168,7 @@ the SQL implementation, `tests/fakes.py`, and — for API-visible fields — `fr
   unsupported questions ("What's the Novara dose for a 5-year-old?") return a clear insufficient-evidence
   answer rather than invented content.
 - Measured latencies (from `timings_ms`) for the demo queries reported in your summary; target
-  `ambient.total` < 3s with real Gemini.
+  `lepius.total` < 3s with real Gemini.
 - Small commits on `feature/ai-rag`.
 
 When you finish each priority, report: files changed, eval numbers (before/after), how you verified,

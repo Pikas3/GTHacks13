@@ -1,10 +1,10 @@
-# Impiricus Ambient
+# Impiricus Lepius
 
 > **Hackathon prototype** (GTHacks 13, team Dinobox). Synthetic HCPs and **fictional** products only. Not a
 > medical device, not a diagnostic or prescribing tool, not patient-facing.
 
-Impiricus Ambient is a **voice-native, context-aware assistant for healthcare professionals (HCPs)**, built on
-top of Impiricus's physician intelligence. An HCP asks a question out loud. Ambient knows who they are and
+Impiricus Lepius is a **voice-native, context-aware assistant for healthcare professionals (HCPs)**, built on
+top of Impiricus's physician intelligence. An HCP asks a question out loud. Lepius knows who they are and
 what they reviewed before, retrieves **approved** resources, tells them **what changed since they last
 looked**, answers with cited evidence, speaks the answer, and turns the interaction into structured
 engagement signals.
@@ -19,7 +19,7 @@ HCP question → intent → HCP context → trusted retrieval → grounded answe
 ```mermaid
 flowchart LR
     Mic[Voice / text] --> STT[ElevenLabs STT]
-    STT --> Orch[AmbientOrchestrator]
+    STT --> Orch[LepiusOrchestrator]
     Orch --> Intent[Gemini intent<br/>structured JSON]
     Orch --> Mem[Structured memory]
     Orch --> Ret[pgvector retrieval<br/>+ personalized re-rank]
@@ -56,7 +56,7 @@ make backend    # http://localhost:8000  (OpenAPI docs at /docs)
 make frontend   # http://localhost:3000  (separate terminal)
 ```
 
-Open `http://localhost:3000/ambient`, keep **Dr. Maya Morgan** selected, and type or say
+Open `http://localhost:3000/lepius`, keep **Dr. Maya Morgan** selected, and type or say
 *"What's changed with Novara since I last looked at it?"*. Then open `/intelligence`.
 
 ### Running pieces individually
@@ -93,7 +93,7 @@ frontend reads only `NEXT_PUBLIC_*` via `frontend/lib/env.ts`. See [`.env.exampl
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://ambient:ambient@localhost:5433/ambient` | Tiger Data / local Timescale. `postgres://…?sslmode=require` is accepted |
+| `DATABASE_URL` | `postgresql+asyncpg://lepius:lepius@localhost:5433/lepius` | Tiger Data / local Timescale. `postgres://…?sslmode=require` is accepted |
 | `GOOGLE_API_KEY` | — | Gemini |
 | `GEMINI_MODEL` / `GEMINI_EMBEDDING_MODEL` | `gemini-3.8-flash` / `gemini-embedding-2` | Model IDs (never hardcoded elsewhere) |
 | `GEMINI_EMBEDDING_DIMENSION` | `768` | pgvector column size ([docs/DATABASE.md](docs/DATABASE.md)) |
@@ -113,19 +113,19 @@ make test           # everything below
 make backend-test   # pytest: unit tests, no DB or API keys needed (in-memory fakes built from data/seed)
 make backend-itest  # integration: real migrations + Sql repositories in a throwaway schema (TEST_DATABASE_URL)
 make backend-test   # pytest unit tests, no DB or API keys needed (in-memory fakes built from data/seed)
-make backend-itest  # integration tests against a real Timescale + pgvector DB (recreates ambient_test)
+make backend-itest  # integration tests against a real Timescale + pgvector DB (recreates lepius_test)
 make frontend-check # eslint + tsc --noEmit + vitest
 ```
 
 Backend tests cover the health endpoint and error normalization, intent parsing (Gemini JSON → Pydantic,
 mock classifier on every demo query), memory lookups, signal scoring, retrieval ranking and filters, and the
-`AmbientOrchestrator` end to end with mocked dependencies.
+`LepiusOrchestrator` end to end with mocked dependencies.
 
 ## Major API endpoints
 
 `GET /api/health` · `GET /api/hcps` · `GET /api/hcps/{id}` · `GET /api/hcps/{id}/timeline` ·
 `GET /api/hcps/{id}/interests` · `GET /api/resources` · `GET /api/resources/{id}` · `POST /api/sessions` ·
-`GET /api/sessions/{id}` · **`POST /api/ambient/query`** · `POST /api/ambient/events` ·
+`GET /api/sessions/{id}` · **`POST /api/lepius/query`** · `POST /api/lepius/events` ·
 `POST /api/audio/transcribe` · `POST /api/audio/synthesize` · `GET /api/intelligence/{id}/signals` ·
 `GET /api/intelligence/{id}/recommendations` · `GET /api/intelligence/{id}/engagement`
 
@@ -136,14 +136,14 @@ Full contracts, error codes and examples are in [docs/API.md](docs/API.md).
 ```
 ├── backend/app
 │   ├── api/            thin FastAPI routers
-│   ├── ambient/        orchestrator, context resolution, structured memory, personalization
+│   ├── lepius/        orchestrator, context resolution, structured memory, personalization
 │   ├── ai/             Gemini client, intent, embeddings, retrieval, generation, semantic diff, prompts
 │   ├── voice/          STT/TTS Protocols + ElevenLabs + mock
 │   ├── impiricus/      MockIONService + signal scoring
 │   ├── db/             models, repositories (Protocols + SQL), Alembic migrations
 │   ├── ingestion/      parse → chunk → embed, seed CLI
 │   └── schemas/        Pydantic contracts (mirrored in frontend/lib/types.ts)
-├── frontend/           Next.js: app/ (ambient, intelligence), components/, hooks/, lib/
+├── frontend/           Next.js: app/ (lepius, intelligence), components/, hooks/, lib/
 ├── data/seed/          synthetic HCPs, fictional resources, demo history
 └── docs/               ARCHITECTURE · API · DATABASE · TEAM_OWNERSHIP · DEMO_FLOW
 ```

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 from app.ai.generation import GeminiResponseGenerator, GeneratedAnswer, GenerationRequest, enforce_grounding_guards
-from app.schemas.ambient import EvidenceReference, HCPContext
+from app.schemas.lepius import EvidenceReference, HCPContext
 from app.schemas.conversation import ConversationContext
 from app.schemas.enums import IntentType, ResourceType
 from app.schemas.hcp import HCPRead

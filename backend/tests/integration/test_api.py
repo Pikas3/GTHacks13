@@ -15,7 +15,7 @@ def test_demo_over_http(client: TestClient) -> None:
     assert health["database"] == "ok" and health["pgvector"]
 
     r = client.post(
-        "/api/ambient/query",
+        "/api/lepius/query",
         json={
             "hcp_id": MORGAN,
             "query": "What's changed with Novara since I last looked at it?",
@@ -27,7 +27,7 @@ def test_demo_over_http(client: TestClient) -> None:
     assert body["intent"] == "WHATS_NEW" and len(body["evidence"]) == 2
 
     follow = client.post(
-        "/api/ambient/query",
+        "/api/lepius/query",
         json={"hcp_id": MORGAN, "session_id": body["session_id"], "query": "What about renal impairment?"},
     ).json()
     assert follow["context"]["active_entity"] == "Novara"

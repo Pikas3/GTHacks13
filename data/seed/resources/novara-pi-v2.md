@@ -11,7 +11,7 @@ source_url: https://example.invalid/synthetic/novara/pi-v2
 # Novara Prescribing Information (SYNTHETIC)
 
 ## Synthetic Product Notice
-Novara (code NVR-000) is a FICTIONAL product created for the Impiricus Ambient hackathon prototype. This document is placeholder text and is not medical guidance of any kind.
+Novara (code NVR-000) is a FICTIONAL product created for the Impiricus Lepius hackathon prototype. This document is placeholder text and is not medical guidance of any kind.
 
 ## Indication
 In this synthetic label, Novara is described as a placeholder therapy for "Condition X", a fictional HER2-positive tumor model used only for demonstrations. Version 2.0 clarifies that the invented indication covers synthetic first-line and later-line Condition X settings in the demo protocol.

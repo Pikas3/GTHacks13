@@ -10,7 +10,7 @@ from uuid import UUID
 from app.db.repositories.interfaces import HCPRepository, InteractionRepository, ResourceRepository
 from app.errors import AppError, ErrorCode
 from app.impiricus.signals import DEFAULT_HALF_LIFE_DAYS, decay_score, effective_interests, next_score
-from app.schemas.ambient import HCPContext
+from app.schemas.lepius import HCPContext
 from app.schemas.enums import REVIEW_EVENT_TYPES, EntityType
 from app.schemas.hcp import HCPInterestRead
 from app.schemas.intelligence import Recommendation

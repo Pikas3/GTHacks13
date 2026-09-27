@@ -1,24 +1,24 @@
-# Local development infrastructure for Impiricus Ambient (hackathon prototype).
+# Local development infrastructure for Impiricus Lepius (hackathon prototype).
 #
 #   docker compose up -d db                 # database only (recommended)
 #   docker compose --profile app up --build  # database + backend + frontend
 #
 # The timescaledb-ha image ships TimescaleDB *and* pgvector, mirroring Tiger Data cloud.
-name: impiricus-ambient
+name: impiricus-lepius
 
 services:
   db:
     image: timescale/timescaledb-ha:pg17
     environment:
-      POSTGRES_USER: ambient
-      POSTGRES_PASSWORD: ambient
-      POSTGRES_DB: ambient
+      POSTGRES_USER: lepius
+      POSTGRES_PASSWORD: lepius
+      POSTGRES_DB: lepius
     ports:
-      - "${AMBIENT_DB_PORT:-5433}:5432"
+      - "${LEPIUS_DB_PORT:-5433}:5432"
     volumes:
-      - ambient-db:/home/postgres/pgdata/data
+      - lepius-db:/home/postgres/pgdata/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ambient -d ambient"]
+      test: ["CMD-SHELL", "pg_isready -U lepius -d lepius"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -28,7 +28,7 @@ services:
     build: ./backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://ambient:ambient@db:5432/ambient
+      DATABASE_URL: postgresql+asyncpg://lepius:lepius@db:5432/lepius
       DATA_DIR: /data
     ports:
       - "8000:8000"
@@ -49,4 +49,4 @@ services:
       - backend
 
 volumes:
-  ambient-db:
+  lepius-db:

@@ -1,4 +1,4 @@
-"""FastAPI application factory for Impiricus Ambient (hackathon prototype)."""
+"""FastAPI application factory for Impiricus Lepius (hackathon prototype)."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -17,7 +17,7 @@ from app.dependencies import ServiceContainer
 from app.errors import AppError, ErrorBody, ErrorCode, ErrorResponse
 from app.observability import RequestContextMiddleware, configure_logging, request_id_var
 
-logger = logging.getLogger("ambient")
+logger = logging.getLogger("lepius")
 
 
 def _error(code: ErrorCode, message: str, status: int, details: dict | None = None) -> JSONResponse:
@@ -52,7 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await container.aclose()
 
     app = FastAPI(
-        title="Impiricus Ambient API",
+        title="Impiricus Lepius API",
         version="0.1.0",
         description="Hackathon prototype. Synthetic HCPs and fictional products only.",
         lifespan=lifespan,

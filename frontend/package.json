@@ -1,8 +1,8 @@
 {
-  "name": "impiricus-ambient-frontend",
+  "name": "impiricus-lepius-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "Impiricus Ambient — hackathon prototype frontend",
+  "description": "Impiricus Lepius — hackathon prototype frontend",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -1,7 +1,7 @@
 # Demo flow (2–3 minutes)
 
 **Setup (before judges arrive):** `make db-up migrate seed`, `make backend`, `make frontend`.
-Open `http://localhost:3000/ambient`. Run `make seed` again to reset demo state between runs.
+Open `http://localhost:3000/lepius`. Run `make seed` again to reset demo state between runs.
 For the real voice + AI demo, set `GOOGLE_API_KEY`, `ELEVENLABS_*`, `USE_MOCK_AI=false`,
 `USE_MOCK_VOICE=false`, then run `make seed` again. Everything below also works fully mocked.
 

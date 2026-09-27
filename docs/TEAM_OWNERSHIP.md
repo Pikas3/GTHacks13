@@ -12,14 +12,14 @@ Ready-to-paste prompts for coding agents, one per workstream: [docs/agent-prompt
 **Owns:** `frontend/app/`, `frontend/components/`, `frontend/hooks/useConversation.ts`, `useHCP.ts`,
 `useIntelligence.ts`, `useResource.ts`, `frontend/lib/mockApi.ts`
 
-**Tasks:** VoiceOrb polish and waveform, ambient layout and animations, evidence cards and source viewer,
+**Tasks:** VoiceOrb polish and waveform, lepius layout and animations, evidence cards and source viewer,
 timeline, intelligence dashboard.
 
 **Work independently:** set `NEXT_PUBLIC_USE_MOCK_API=true` in `frontend/.env.local` to run with no
 backend. Talk to the backend only through `lib/api.ts` and the contracts in `docs/API.md`. Keep pipeline
 logic in hooks and `lib/`, not in components.
 
-**Start with:** `TODO(frontend)` in `components/ambient/VoiceOrb.tsx` (speaking waveform), then the
+**Start with:** `TODO(frontend)` in `components/lepius/VoiceOrb.tsx` (speaking waveform), then the
 evidence/source viewer polish.
 
 ## B — AI / RAG (`TODO(ai-rag)`, `TODO(diff)`)
@@ -45,7 +45,7 @@ Regression-test against `backend/tests/test_intent.py` and `test_orchestrator.py
 
 ## C — Backend / Database (`TODO(database)`)
 
-**Owns:** `backend/app/db/`, `backend/app/ambient/`, `backend/app/impiricus/`, `backend/app/api/`,
+**Owns:** `backend/app/db/`, `backend/app/lepius/`, `backend/app/impiricus/`, `backend/app/api/`,
 `backend/app/dependencies.py`, `data/seed/*.json`
 
 **Tasks:** Tiger Data schema, Timescale event storage, conversation state, memory, personalization,
@@ -66,7 +66,7 @@ connect to Tiger Data cloud via `DATABASE_URL`, then interest-score decay.
 **Tasks:** ElevenLabs STT/TTS, audio recording, streaming playback, latency.
 
 **Interfaces you implement:** `SpeechToTextProvider`, `TextToSpeechProvider` (`voice/interfaces.py`). You
-never touch `AmbientOrchestrator`, which only ever sees text.
+never touch `LepiusOrchestrator`, which only ever sees text.
 
 **Start with:** set `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `USE_MOCK_VOICE=false`. Verify
 `/api/audio/transcribe` with real browser recordings (webm/opus from Chrome, mp4 from Safari), then
@@ -79,7 +79,7 @@ never touch `AmbientOrchestrator`, which only ever sees text.
 | `backend/app/schemas/*` + `frontend/lib/types.ts` | The contract. Change both in one PR and update `docs/API.md` first |
 | `backend/app/config.py`, `.env.example` | Add settings; never rename existing ones without telling the team |
 | `backend/app/dependencies.py` | The only place implementations are chosen. Coordinate with C |
-| `backend/app/ambient/orchestrator.py` | Pipeline order. Coordinate with C |
+| `backend/app/lepius/orchestrator.py` | Pipeline order. Coordinate with C |
 | `backend/app/db/migrations/versions/*` | Never edit a merged migration; add a new one |
 
 ## Git workflow
@@ -87,7 +87,7 @@ never touch `AmbientOrchestrator`, which only ever sees text.
 Suggested branches:
 
 ```
-feature/frontend-ambient
+feature/frontend-lepius
 feature/ai-rag
 feature/tigerdata
 feature/voice-elevenlabs

@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { matchesWakePhrase, normalizeWakeTranscript } from "@/lib/wakeWord";
 
 describe("wakeWord", () => {
-  it("matches hey ambient variants", () => {
-    expect(matchesWakePhrase("hey Ambient")).toBe(true);
-    expect(matchesWakePhrase("Hey ambient,")).toBe(true);
-    expect(matchesWakePhrase("ok ambient")).toBe(true);
-    expect(matchesWakePhrase("hello ambient")).toBe(true);
-    expect(matchesWakePhrase("heyambient")).toBe(true);
+  it("matches hey lepius variants", () => {
+    expect(matchesWakePhrase("hey Lepius")).toBe(true);
+    expect(matchesWakePhrase("Hey lepius,")).toBe(true);
+    expect(matchesWakePhrase("ok lepius")).toBe(true);
+    expect(matchesWakePhrase("hello lepius")).toBe(true);
+    expect(matchesWakePhrase("heylepius")).toBe(true);
   });
 
   it("rejects unrelated speech", () => {
@@ -18,6 +18,6 @@ describe("wakeWord", () => {
   });
 
   it("normalizes punctuation", () => {
-    expect(normalizeWakeTranscript("  Hey,  Ambient! ")).toBe("hey ambient");
+    expect(normalizeWakeTranscript("  Hey,  Lepius! ")).toBe("hey lepius");
   });
 });

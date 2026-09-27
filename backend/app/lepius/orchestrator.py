@@ -1,4 +1,4 @@
-"""AmbientOrchestrator — the single entry point for the Ambient loop.
+"""LepiusOrchestrator — the single entry point for the Lepius loop.
 
 HCP question -> intent -> HCP context -> retrieval -> grounded answer -> evidence
 -> conversation turn -> engagement event -> interest signals -> response.
@@ -14,14 +14,14 @@ from app.ai.generation import GenerationRequest, ResponseGenerator
 from app.ai.intent import IntentClassifier
 from app.ai.retrieval import ResourceRetriever
 from app.ai.semantic_diff import SemanticDiffService
-from app.ambient.context import ContextResolver, ResolvedQuery
-from app.ambient.memory import MemoryService
-from app.ambient.personalization import PersonalizationService
+from app.lepius.context import ContextResolver, ResolvedQuery
+from app.lepius.memory import MemoryService
+from app.lepius.personalization import PersonalizationService
 from app.db.repositories.interfaces import ConversationRepository, InteractionRepository, ResourceRepository
 from app.errors import AppError, ErrorCode
 from app.impiricus.interfaces import IONService
 from app.observability import session_id_var, timed
-from app.schemas.ambient import AmbientAnswer, AmbientResponse, EvidenceReference, HCPContext
+from app.schemas.lepius import LepiusAnswer, LepiusResponse, EvidenceReference, HCPContext
 from app.schemas.conversation import ConversationContext, SessionRead
 from app.schemas.diff import SemanticDiff
 from app.schemas.enums import ConversationRole, EntityType, EventType, Importance, InputMode, IntentType
@@ -37,7 +37,7 @@ def _human_date(ts: datetime) -> str:
     return f"{ts:%B} {ts.day}, {ts.year}"
 
 
-class AmbientOrchestrator:
+class LepiusOrchestrator:
     def __init__(
         self,
         *,
@@ -73,16 +73,16 @@ class AmbientOrchestrator:
         session_id: UUID | None,
         query: str,
         input_mode: InputMode = InputMode.TEXT,
-    ) -> AmbientResponse:
+    ) -> LepiusResponse:
         timings: dict[str, float] = {}
-        with timed("ambient.total", timings):
+        with timed("lepius.total", timings):
             response = await self._process(hcp_id, session_id, query.strip(), input_mode, timings)
         # `timed` records on exit, i.e. after the response was built; copy the final timings in.
         return response.model_copy(update={"timings_ms": dict(timings)})
 
     async def _process(
         self, hcp_id: UUID, session_id: UUID | None, query: str, input_mode: InputMode, timings: dict[str, float]
-    ) -> AmbientResponse:
+    ) -> LepiusResponse:
         # 1. Load HCP (raises INVALID_HCP)
         hcp_ctx = await self.ion.get_hcp_context(hcp_id)
         # 2. Load conversation state
@@ -173,13 +173,13 @@ class AmbientOrchestrator:
         await self.conversations.update_context(session.id, new_ctx)
 
         # 13. Response
-        return AmbientResponse(
+        return LepiusResponse(
             session_id=session.id,
             query=query,
             resolved_query=resolved.resolved_query,
             intent=resolved.intent,
             entities=resolved.entities,
-            response=AmbientAnswer(
+            response=LepiusAnswer(
                 text=answer.text, speech_text=answer.speech_text, insufficient_evidence=answer.insufficient_evidence
             ),
             context=new_ctx,

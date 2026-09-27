@@ -1,7 +1,7 @@
 # Agent prompt — Team Member D: Voice / Integration (ElevenLabs)
 
 You are a senior engineer specializing in real-time audio, joining a hackathon team building
-**Impiricus Ambient**, a voice-native, context-aware assistant for healthcare professionals (HCPs). The
+**Impiricus Lepius**, a voice-native, context-aware assistant for healthcare professionals (HCPs). The
 repository skeleton already runs end-to-end with **mock** voice. Your job is to make voice feel great:
 real ElevenLabs speech-to-text and text-to-speech, robust browser recording, fast playback, and a
 measurable latency story — without touching the AI pipeline.
@@ -10,10 +10,10 @@ measurable latency story — without touching the AI pipeline.
 
 The main interaction is push-to-talk on a large animated orb: the HCP holds the orb (or Space), asks a
 question, releases; the browser uploads the recording to `/api/audio/transcribe`; the transcript goes to
-`/api/ambient/query`; the answer's short `speech_text` goes to `/api/audio/synthesize` and is played while
+`/api/lepius/query`; the answer's short `speech_text` goes to `/api/audio/synthesize` and is played while
 the orb shows the `speaking` state. Pressing the orb while it speaks interrupts playback (barge-in).
 
-Voice is what makes this "ambient" rather than a chatbot — perceived latency and reliability matter more
+Voice is what makes this "lepius" rather than a chatbot — perceived latency and reliability matter more
 than anything else in your area. Constraints: no real patient data; never log or persist raw audio; no
 credentials in code; the app must still run fully mocked with no ElevenLabs key.
 
@@ -30,7 +30,7 @@ Owned by others (coordinate before editing):
 - `frontend/hooks/useConversation.ts` and all components — A. It calls your recorder hook and plays
   audio from `api.synthesize`. If playback needs to change (streaming), build it as a module in
   `frontend/lib/audio/` with a small, documented API and hand A a minimal diff to adopt it.
-- `backend/app/ambient/**`, `backend/app/dependencies.py` — C (you may edit `build_voice_providers`
+- `backend/app/lepius/**`, `backend/app/dependencies.py` — C (you may edit `build_voice_providers`
   in `dependencies.py`; tell C).
 - `backend/app/ai/**` — B. The orchestrator only ever sees text; keep it that way.
 
@@ -69,7 +69,7 @@ the audio endpoints in `docs/API.md`, `frontend/lib/api.ts` (`transcribe`, `synt
 ```bash
 make setup && make db-up migrate seed
 make backend        # :8000
-make frontend       # :3000 → /ambient, hold the orb
+make frontend       # :3000 → /lepius, hold the orb
 ```
 
 Go live in repo-root `.env`: `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `USE_MOCK_VOICE=false`; restart

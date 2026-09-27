@@ -1,13 +1,13 @@
 /**
- * Typed client for the Ambient HTTP API (see docs/API.md).
+ * Typed client for the Lepius HTTP API (see docs/API.md).
  * Components never call fetch directly — they go through hooks that use `api`.
  */
 import { env } from "@/lib/env";
 import { createMockApi } from "@/lib/mockApi";
 import type {
   ActivitySince,
-  AmbientRequest,
-  AmbientResponse,
+  LepiusRequest,
+  LepiusResponse,
   ApiErrorCode,
   EngagementEventRequest,
   EngagementSeries,
@@ -42,7 +42,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface AmbientApi {
+export interface LepiusApi {
   health(): Promise<HealthStatus>;
   listHcps(): Promise<HCP[]>;
   getHcp(hcpId: UUID): Promise<HCPDetail>;
@@ -51,7 +51,7 @@ export interface AmbientApi {
   listResources(product?: string): Promise<Resource[]>;
   getResource(resourceId: UUID): Promise<ResourceDetail>;
   createSession(hcpId: UUID): Promise<{ id: UUID }>;
-  query(body: AmbientRequest): Promise<AmbientResponse>;
+  query(body: LepiusRequest): Promise<LepiusResponse>;
   recordEvent(body: EngagementEventRequest): Promise<{ signals_generated: EngagementSignal[] }>;
   transcribe(audio: Blob, opts?: { mockText?: string }): Promise<TranscriptionResult>;
   synthesize(text: string): Promise<SynthesizedSpeech>;
@@ -103,7 +103,7 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export const httpApi: AmbientApi = {
+export const httpApi: LepiusApi = {
   health: () => request("/health"),
   listHcps: () => request("/hcps"),
   getHcp: (id) => request(`/hcps/${id}`),
@@ -112,8 +112,8 @@ export const httpApi: AmbientApi = {
   listResources: (product) => request(`/resources${product ? `?product=${encodeURIComponent(product)}` : ""}`),
   getResource: (id) => request(`/resources/${id}`),
   createSession: (hcpId) => request("/sessions", json({ hcp_id: hcpId })),
-  query: (body) => request("/ambient/query", json(body)),
-  recordEvent: (body) => request("/ambient/events", json(body)),
+  query: (body) => request("/lepius/query", json(body)),
+  recordEvent: (body) => request("/lepius/events", json(body)),
   async transcribe(audio, opts) {
     const form = new FormData();
     const rawType = (audio.type || "audio/webm").split(";", 1)[0]!.trim().toLowerCase();
@@ -143,4 +143,4 @@ export const httpApi: AmbientApi = {
 };
 
 /** The API implementation used by the app (HTTP by default, fixtures when NEXT_PUBLIC_USE_MOCK_API=true). */
-export const api: AmbientApi = env.useMockApi ? createMockApi() : httpApi;
+export const api: LepiusApi = env.useMockApi ? createMockApi() : httpApi;

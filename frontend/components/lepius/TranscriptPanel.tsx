@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
-import type { AmbientResponse } from "@/lib/types";
+import type { LepiusResponse } from "@/lib/types";
 
 /** Latest HCP utterance plus how the system understood it. */
-export function TranscriptPanel({ transcript, response }: { transcript: string; response: AmbientResponse | null }) {
+export function TranscriptPanel({ transcript, response }: { transcript: string; response: LepiusResponse | null }) {
   if (!transcript) {
     return <p className="text-center text-sm text-muted-foreground">Hold the orb (or press Space) and ask about an approved resource.</p>;
   }

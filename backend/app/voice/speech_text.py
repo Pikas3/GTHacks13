@@ -1,7 +1,7 @@
 """Turn display / answer text into speakable TTS input.
 
 Display answers may include citation markers, markdown, and abbreviations that sound
-awkward when spoken. The ambient generator stays display-oriented; this normalizer
+awkward when spoken. The lepius generator stays display-oriented; this normalizer
 runs only on the synthesize path.
 """
 

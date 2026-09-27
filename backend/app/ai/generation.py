@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.ai.gemini_client import GeminiClient
 from app.ai.prompts import GROUNDED_PROMPT, GROUNDED_SYSTEM
-from app.schemas.ambient import EvidenceReference, HCPContext
+from app.schemas.lepius import EvidenceReference, HCPContext
 from app.schemas.conversation import ConversationContext
 from app.schemas.diff import SemanticDiff
 from app.schemas.enums import IntentType
