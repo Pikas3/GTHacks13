@@ -16,10 +16,10 @@ export default function Home() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link href="/lepius" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-medium text-primary-foreground">
-            <AudioLines className="h-4 w-4" /> Open Lepius (HCP view)
+            <AudioLines className="h-4 w-4" /> Open Lepius
           </Link>
           <Link href="/intelligence" className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-medium">
-            <BarChart3 className="h-4 w-4" /> Intelligence (Impiricus view)
+            <BarChart3 className="h-4 w-4" /> Intelligence
           </Link>
         </div>
       </section>
