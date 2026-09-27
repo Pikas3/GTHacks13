@@ -1,5 +1,5 @@
 /**
- * Client-side latency timings for the Ambient voice path.
+ * Client-side latency timings for the Lepius voice path.
  * Consumed by a future latency panel (team A); safe to read anytime.
  */
 

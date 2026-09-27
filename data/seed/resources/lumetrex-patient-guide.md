@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/lumetrex/patient-guide
 # Lumetrex Patient Education Guide (SYNTHETIC)
 
 ## Synthetic Product Notice
-Lumetrex (code LMX-000) is a FICTIONAL product for the Impiricus Ambient prototype. Not medical guidance.
+Lumetrex (code LMX-000) is a FICTIONAL product for the Impiricus Lepius prototype. Not medical guidance.
 
 ## What Lumetrex Is For
 In this demo guide, Lumetrex is described for fictional "Condition Z", a placeholder primary-care condition used only in the prototype.

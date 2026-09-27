@@ -3,12 +3,12 @@
 import { Volume2, VolumeX } from "lucide-react";
 import { useState } from "react";
 
-import { AmbientResponse } from "@/components/ambient/AmbientResponse";
-import { CollapsibleSection } from "@/components/ambient/CollapsibleSection";
-import { ConversationContext } from "@/components/ambient/ConversationContext";
-import { TextQueryInput } from "@/components/ambient/TextQueryInput";
-import { TranscriptPanel } from "@/components/ambient/TranscriptPanel";
-import { VoiceOrb } from "@/components/ambient/VoiceOrb";
+import { LepiusResponse } from "@/components/lepius/LepiusResponse";
+import { CollapsibleSection } from "@/components/lepius/CollapsibleSection";
+import { ConversationContext } from "@/components/lepius/ConversationContext";
+import { TextQueryInput } from "@/components/lepius/TextQueryInput";
+import { TranscriptPanel } from "@/components/lepius/TranscriptPanel";
+import { VoiceOrb } from "@/components/lepius/VoiceOrb";
 import { EvidenceDrawer } from "@/components/evidence/EvidenceDrawer";
 import { HCPSelector } from "@/components/hcp/HCPSelector";
 import { InteractionTimeline } from "@/components/hcp/InteractionTimeline";
@@ -22,7 +22,7 @@ import { isBusy } from "@/lib/orbMachine";
 import type { EvidenceReference } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export default function AmbientPage() {
+export default function LepiusPage() {
   const hcp = useHCP();
   const convo = useConversation(hcp.selectedId, { onInteraction: hcp.refresh });
   const [highlighted, setHighlighted] = useState<string | null>(null);
@@ -73,7 +73,7 @@ export default function AmbientPage() {
             onStopSpeaking={convo.stopSpeaking}
           />
           <TranscriptPanel transcript={convo.transcript} response={convo.response} />
-          <AmbientResponse response={convo.response} onCite={cite} onFollowUp={(q) => void convo.submitText(q)} disabled={busy} />
+          <LepiusResponse response={convo.response} onCite={cite} onFollowUp={(q) => void convo.submitText(q)} disabled={busy} />
           <TextQueryInput onSubmit={(q) => void convo.submitText(q)} disabled={busy || !hcp.selectedId} />
         </section>
 

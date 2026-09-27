@@ -19,7 +19,7 @@ from starlette.responses import Response
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 session_id_var: ContextVar[str | None] = ContextVar("session_id", default=None)
 
-logger = logging.getLogger("ambient")
+logger = logging.getLogger("lepius")
 
 _RESERVED = set(vars(logging.makeLogRecord({})).keys()) | {"message", "asctime"}
 

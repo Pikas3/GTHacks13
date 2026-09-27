@@ -33,7 +33,7 @@ def test_mock_text_override_on_transcribe() -> None:
 def test_speech_create_and_stream_mock() -> None:
     settings = Settings(_env_file=None, use_mock_voice=True)
     with TestClient(create_app(settings)) as client:
-        created = client.post("/api/audio/speech", json={"text": "Hello from Ambient."})
+        created = client.post("/api/audio/speech", json={"text": "Hello from Lepius."})
         assert created.status_code == 201
         body = created.json()
         assert body["is_placeholder"] is True

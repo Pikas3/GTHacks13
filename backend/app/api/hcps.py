@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from app.ambient.memory import MemoryService
+from app.lepius.memory import MemoryService
 from app.dependencies import Repositories, get_ion, get_memory, get_repositories
 from app.errors import AppError, ErrorCode
 from app.impiricus.mock_ion import MockIONService

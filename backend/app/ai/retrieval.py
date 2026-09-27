@@ -17,7 +17,7 @@ from app.ai.embeddings import EmbeddingProvider
 from app.ai.vocabulary import ENTITY_ALIASES
 from app.db.repositories.interfaces import ResourceRepository
 from app.observability import timed
-from app.schemas.ambient import HCPContext
+from app.schemas.lepius import HCPContext
 from app.schemas.conversation import ConversationContext
 from app.schemas.enums import ResourceType
 from app.schemas.resource import ChunkHit

@@ -1,4 +1,4 @@
-from app.ambient.memory import MemoryService
+from app.lepius.memory import MemoryService
 from tests.conftest import MORGAN_ID
 
 

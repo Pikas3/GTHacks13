@@ -7,7 +7,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Impiricus Ambient",
+  title: "Impiricus Lepius",
   description: "Hackathon prototype: voice-native, context-aware HCP engagement. Synthetic data only.",
 };
 

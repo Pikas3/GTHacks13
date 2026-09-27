@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/cardexa/access
 # Cardexa Access and Support Overview (SYNTHETIC)
 
 ## Synthetic Product Notice
-Cardexa (code CDX-000) is a FICTIONAL product for the Impiricus Ambient prototype. Not medical guidance.
+Cardexa (code CDX-000) is a FICTIONAL product for the Impiricus Lepius prototype. Not medical guidance.
 
 ## Prior Authorization
 This FICTIONAL overview describes a placeholder prior-authorization checklist for Condition H under a synthetic payer demo: ejection-metric documentation, prior oral regimen list, and a demo cardiology attestation form.

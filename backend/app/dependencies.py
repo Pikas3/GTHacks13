@@ -18,10 +18,10 @@ from app.ai.generation import GeminiResponseGenerator, MockResponseGenerator, Re
 from app.ai.intent import GeminiIntentClassifier, IntentClassifier, MockIntentClassifier
 from app.ai.retrieval import HybridResourceRetriever
 from app.ai.semantic_diff import GeminiSemanticDiffService, MockSemanticDiffService, SemanticDiffService
-from app.ambient.context import ContextResolver
-from app.ambient.memory import MemoryService
-from app.ambient.orchestrator import AmbientOrchestrator
-from app.ambient.personalization import EngagementService, PersonalizationService
+from app.lepius.context import ContextResolver
+from app.lepius.memory import MemoryService
+from app.lepius.orchestrator import LepiusOrchestrator
+from app.lepius.personalization import EngagementService, PersonalizationService
 from app.config import Settings
 from app.db.repositories.conversation_repository import SqlConversationRepository
 from app.db.repositories.hcp_repository import SqlHCPRepository
@@ -165,9 +165,9 @@ def build_ion(settings: Settings, repos: Repositories) -> MockIONService:
     )
 
 
-def build_orchestrator(settings: Settings, ai: AIProviders, repos: Repositories) -> AmbientOrchestrator:
+def build_orchestrator(settings: Settings, ai: AIProviders, repos: Repositories) -> LepiusOrchestrator:
     ion = build_ion(settings, repos)
-    return AmbientOrchestrator(
+    return LepiusOrchestrator(
         intent_classifier=ai.intent,
         retriever=HybridResourceRetriever(
             repos.resources, ai.embedder, candidate_pool=settings.retrieval_candidate_pool
@@ -210,5 +210,5 @@ def get_engagement_service(
 def get_orchestrator(
     container: ServiceContainer = Depends(get_container),
     repos: Repositories = Depends(get_repositories),
-) -> AmbientOrchestrator:
+) -> LepiusOrchestrator:
     return build_orchestrator(container.settings, container.ai, repos)

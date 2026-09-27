@@ -22,7 +22,7 @@ function storeId(id: string): void {
   }
 }
 
-/** HCP list + selected HCP profile/timeline. Selection persists across /ambient and /intelligence. */
+/** HCP list + selected HCP profile/timeline. Selection persists across /lepius and /intelligence. */
 export function useHCP() {
   const [hcps, setHcps] = useState<HCP[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);

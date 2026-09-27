@@ -36,7 +36,7 @@ Each response has an `x-request-id` header, and the same ID appears in the backe
   - Interest scores returned by `/hcps/{id}`, `/hcps/{id}/interests` and `/intelligence/{id}/signals` are
     now **time-decayed** (`INTEREST_HALF_LIFE_DAYS`, default 90). Shapes are unchanged; values are lower
     for stale interests.
-  - `AmbientResponse.timings_ms` now includes `ambient.total`. It was previously always missing.
+  - `LepiusResponse.timings_ms` now includes `lepius.total`. It was previously always missing.
 
 ## Endpoints
 
@@ -51,8 +51,8 @@ Each response has an `x-request-id` header, and the same ID appears in the backe
 | GET | `/resources/{resource_id}` | `ResourceDetail` (+ chunks) |
 | POST | `/sessions` `{hcp_id}` | `Session` (201), also records `SESSION_STARTED` |
 | GET | `/sessions/{session_id}` | `SessionDetail` (+ turns, context) |
-| POST | `/ambient/query` | `AmbientResponse` (below) |
-| POST | `/ambient/events` | `{event, signals_generated}`: client-reported engagement, e.g. `SOURCE_OPEN` |
+| POST | `/lepius/query` | `LepiusResponse` (below) |
+| POST | `/lepius/events` | `{event, signals_generated}`: client-reported engagement, e.g. `SOURCE_OPEN` |
 | POST | `/audio/transcribe` (multipart `audio`, optional `mock_text`) | `{text, confidence, language, provider}` |
 | POST | `/audio/synthesize` `{text}` | audio bytes (`audio/mpeg` real, `audio/wav` mock); headers `X-TTS-Provider`, `X-TTS-Placeholder` |
 | POST | `/audio/speech` `{text}` | `{speech_id, provider, media_type, is_placeholder, expires_in_s}` (201) — text never in a URL |
@@ -63,7 +63,7 @@ Each response has an `x-request-id` header, and the same ID appears in the backe
 | GET | `/intelligence/{hcp_id}/activity?since=<ISO>` | `ActivitySince` `{hcp_id, since, event_count, by_type: {EVENT_TYPE: n}, events: TimelineEntry[]}`. `since` defaults to 7 days ago; naive timestamps are treated as UTC |
 | GET | `/intelligence/topics/trending?window=7 days&limit=10` | `TrendingTopics` `{window, topics: [{topic, event_count, hcp_count, last_seen}]}` across all HCPs. `window` ∈ `1 day`, `7 days`, `30 days`, `90 days` (other values → 422) |
 
-## POST /ambient/query
+## POST /lepius/query
 
 Request:
 
@@ -109,7 +109,7 @@ Response (abridged, real mock-mode output):
     { "hcp_id": "…", "entity": "Novara", "entity_type": "PRODUCT", "topic": null, "intent": "WHATS_NEW",
       "event_type": "VOICE_QUERY", "weight": 0.08, "new_score": 0.72, "timestamp": "…" }
   ],
-  "timings_ms": { "retrieval.vector_search": 5.4, "generation": 0.2, "ambient.total": 124.1 }
+  "timings_ms": { "retrieval.vector_search": 5.4, "generation": 0.2, "lepius.total": 124.1 }
 }
 ```
 
@@ -154,7 +154,7 @@ Clips expire after ~120 seconds and are never persisted to disk.
 
 ```bash
 M=$(curl -s localhost:8000/api/hcps | python3 -c "import json,sys;print([h['id'] for h in json.load(sys.stdin) if h['external_id']=='SYN-HCP-001'][0])")
-curl -s -X POST localhost:8000/api/ambient/query -H 'content-type: application/json' \
+curl -s -X POST localhost:8000/api/lepius/query -H 'content-type: application/json' \
   -d "{\"hcp_id\":\"$M\",\"query\":\"What's changed with Novara since I last looked at it?\"}"
 curl -s -X POST localhost:8000/api/audio/synthesize -H 'content-type: application/json' -d '{"text":"hello"}' -o out.audio
 ```

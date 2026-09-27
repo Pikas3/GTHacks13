@@ -1,7 +1,7 @@
 [project]
-name = "impiricus-ambient-backend"
+name = "impiricus-lepius-backend"
 version = "0.1.0"
-description = "Impiricus Ambient — hackathon prototype backend (FastAPI)"
+description = "Impiricus Lepius — hackathon prototype backend (FastAPI)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

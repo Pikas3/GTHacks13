@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Orchestrates one Ambient conversation on the client:
+ * Orchestrates one Lepius conversation on the client:
  * record -> transcribe -> query -> (speak) -> idle, plus text fallback and source opens.
  * Components render state from this hook; they contain no pipeline logic.
  */
@@ -14,7 +14,7 @@ import { playObjectUrl, playPlaceholder, playSpeechResponse, stopActivePlayback 
 import { rmsLevelFromTimeDomain } from "@/lib/audioLevel";
 import { api, ApiError } from "@/lib/api";
 import { orbTransition, type OrbEvent } from "@/lib/orbMachine";
-import type { AmbientResponse, EvidenceReference, InputMode, OrbState } from "@/lib/types";
+import type { LepiusResponse, EvidenceReference, InputMode, OrbState } from "@/lib/types";
 
 function startLevelMeter(analyser: AnalyserNode, onLevel: (level: number) => void): () => void {
   const buf = new Uint8Array(analyser.fftSize);
@@ -46,7 +46,7 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
   const recorder = useAudioRecorder();
   const [state, setState] = useState<OrbState>("idle");
   const [transcript, setTranscript] = useState<string>("");
-  const [response, setResponse] = useState<AmbientResponse | null>(null);
+  const [response, setResponse] = useState<LepiusResponse | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [latencyMs, setLatencyMs] = useState<Partial<Record<"stt" | "query" | "tts_ttfa", number>>>({});
@@ -338,7 +338,7 @@ export function useConversation(hcpId: string | null, { onInteraction }: Convers
     hasLiveAudio,
     /** Browser supports SpeechRecognition wake phrase. */
     wakeSupported: wake.supported,
-    /** Wake-word mic is actively listening for "hey Ambient". */
+    /** Wake-word mic is actively listening for "hey Lepius". */
     wakeListening: wake.listening,
   };
 }

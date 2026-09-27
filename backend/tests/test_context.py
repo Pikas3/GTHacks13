@@ -1,7 +1,7 @@
 """ContextResolver follow-up and product-switch tests."""
 
 from app.ai.intent import MockIntentClassifier
-from app.ambient.context import ContextResolver
+from app.lepius.context import ContextResolver
 from app.schemas.conversation import ConversationContext
 from app.schemas.enums import IntentType
 

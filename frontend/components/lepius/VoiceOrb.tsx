@@ -8,7 +8,7 @@ import { motion, useReducedMotion, type TargetAndTransition } from "framer-motio
 import { Loader2, Mic, Sparkles, TriangleAlert } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
-import { ListeningIndicator } from "@/components/ambient/ListeningIndicator";
+import { ListeningIndicator } from "@/components/lepius/ListeningIndicator";
 import { ORB_STATE_LABEL } from "@/lib/constants";
 import type { OrbState } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -179,7 +179,7 @@ export function VoiceOrb({
           aria-label={
             state === "speaking"
               ? "Stop speaking"
-              : 'Hold to ask, or say "hey Ambient"'
+              : 'Hold to ask, or say "hey Lepius"'
           }
           aria-pressed={holding}
           disabled={disabled}

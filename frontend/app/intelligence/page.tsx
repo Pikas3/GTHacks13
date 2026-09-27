@@ -16,8 +16,8 @@ import { useHCP } from "@/hooks/useHCP";
 import { useIntelligence } from "@/hooks/useIntelligence";
 
 /**
- * Impiricus-facing view: what Ambient learned about this (synthetic) HCP.
- * TODO(frontend): live-update when Ambient records events (poll or SSE) instead of manual refresh.
+ * Impiricus-facing view: what Lepius learned about this (synthetic) HCP.
+ * TODO(frontend): live-update when Lepius records events (poll or SSE) instead of manual refresh.
  */
 export default function IntelligencePage() {
   const hcp = useHCP();

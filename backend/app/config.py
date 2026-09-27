@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # --- Database -----------------------------------------------------------
-    database_url: str = "postgresql+asyncpg://ambient:ambient@localhost:5433/ambient"
+    database_url: str = "postgresql+asyncpg://lepius:lepius@localhost:5433/lepius"
     db_echo: bool = False
     # Pool sizing: Tiger Data services cap connections per plan, and the backend + seed + migrate +
     # teammates all share them. 5 + 5 overflow is plenty for a demo.
@@ -113,7 +113,7 @@ class Settings(BaseSettings):
         if sslmode in {"require", "verify-ca", "verify-full"}:
             # asyncpg accepts libpq sslmode names; verify-* additionally checks the server cert.
             args["ssl"] = sslmode
-        server_settings: dict[str, str] = {"application_name": "impiricus-ambient"}
+        server_settings: dict[str, str] = {"application_name": "impiricus-lepius"}
         timeout_ms = 0 if for_migrations else self.db_statement_timeout_ms
         server_settings["statement_timeout"] = str(timeout_ms)
         if self.db_search_path:

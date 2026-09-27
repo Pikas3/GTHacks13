@@ -1,11 +1,11 @@
 /**
- * In-browser fixture implementation of AmbientApi (NEXT_PUBLIC_USE_MOCK_API=true).
+ * In-browser fixture implementation of LepiusApi (NEXT_PUBLIC_USE_MOCK_API=true).
  * Lets frontend work proceed with no backend, database, or API keys.
  * All data is SYNTHETIC; products are FICTIONAL.
  */
-import type { AmbientApi } from "@/lib/api";
+import type { LepiusApi } from "@/lib/api";
 import type {
-  AmbientResponse,
+  LepiusResponse,
   EngagementSignal,
   EventType,
   EvidenceReference,
@@ -44,7 +44,7 @@ const RENAL = evidence("E1", PI_V2, "Renal Impairment",
 const LTFU_EV = evidence("E2", LTFU, "Long-Term Outcomes",
   "At the 36-month placeholder timepoint, the synthetic Regimen A arm maintained a higher Placeholder Durability Index than the comparator arm.");
 
-export function createMockApi(): AmbientApi {
+export function createMockApi(): LepiusApi {
   const hcps: HCPDetail[] = [
     {
       id: MORGAN, external_id: "SYN-HCP-001", name: "Dr. Maya Morgan", specialty: "Oncology",
@@ -131,7 +131,7 @@ export function createMockApi(): AmbientApi {
       const signalsGenerated = activeEntity ? [bump(body.hcp_id, activeEntity, 0.08, intent)] : [];
       if (topic) signalsGenerated.push(bump(body.hcp_id, topic, 0.08, intent));
       timeline.unshift({ id: crypto.randomUUID(), timestamp: new Date().toISOString(), event_type: body.input_mode === "voice" ? "VOICE_QUERY" : "TEXT_QUERY", label: `Asked "${body.query}"`, entity: activeEntity, topic, resource_id: null });
-      const res: AmbientResponse = {
+      const res: LepiusResponse = {
         session_id: body.session_id ?? crypto.randomUUID(),
         query: body.query,
         resolved_query: intent === "FOLLOW_UP" && activeEntity ? `${activeEntity}: ${body.query}` : body.query,
@@ -144,7 +144,7 @@ export function createMockApi(): AmbientApi {
         history: intent === "RECALL_HISTORY" ? timeline.slice(1) : [],
         suggested_followups: ["What about renal impairment?", "Show me the source."],
         signals_generated: signalsGenerated,
-        timings_ms: { "ambient.total": 350 },
+        timings_ms: { "lepius.total": 350 },
       };
       return delay(res, 700);
     },

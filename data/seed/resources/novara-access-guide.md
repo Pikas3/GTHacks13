@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/novara/access-guide
 # Novara Access Guide (SYNTHETIC)
 
 ## Synthetic Product Notice
-Novara is a FICTIONAL product. This access guide is demo content for the Impiricus Ambient prototype and is not a real benefits document.
+Novara is a FICTIONAL product. This access guide is demo content for the Impiricus Lepius prototype and is not a real benefits document.
 
 ## Prior Authorization
 The synthetic access guide describes a three-step placeholder prior authorization checklist: confirm the placeholder diagnosis code for Condition X, attach the synthetic benefits form, and submit through the demo portal. Average turnaround is described as "3–5 placeholder business days".

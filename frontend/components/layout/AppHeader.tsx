@@ -9,7 +9,7 @@ import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/ambient", label: "Ambient" },
+  { href: "/lepius", label: "Lepius" },
   { href: "/intelligence", label: "Intelligence" },
 ];
 

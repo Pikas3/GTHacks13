@@ -13,7 +13,7 @@ WHATS_NEW_Q = "What's changed with Novara since I last looked at it?"
 
 def ask(client: TestClient, q: str, session_id: str | None = None, mode: str = "voice") -> dict:
     resp = client.post(
-        "/api/ambient/query",
+        "/api/lepius/query",
         json={"hcp_id": str(MORGAN_ID), "session_id": session_id, "query": q, "input_mode": mode},
     )
     assert resp.status_code == 200, resp.text
@@ -85,7 +85,7 @@ def test_asking_is_not_looking_but_source_open_is(client: TestClient) -> None:
 
     pi_v2 = next(e for e in first["evidence"] if e["version"] == "2.0")
     opened = client.post(
-        "/api/ambient/events",
+        "/api/lepius/events",
         json={
             "hcp_id": str(MORGAN_ID),
             "session_id": first["session_id"],
@@ -110,7 +110,7 @@ def test_signals_update_hcp_interest(client: TestClient) -> None:
     assert after_query["Novara"] == pytest.approx(novara["new_score"])
 
     ev = client.post(
-        "/api/ambient/events",
+        "/api/lepius/events",
         json={"hcp_id": str(MORGAN_ID), "event_type": "SOURCE_OPEN", "entity": "Novara"},
     ).json()
     assert ev["signals_generated"][0]["weight"] == 0.10

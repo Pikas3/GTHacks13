@@ -163,14 +163,14 @@ export interface EngagementSignal {
   timestamp: ISODateTime | null;
 }
 
-export interface AmbientRequest {
+export interface LepiusRequest {
   hcp_id: UUID;
   session_id?: UUID | null;
   query: string;
   input_mode?: InputMode;
 }
 
-export interface AmbientResponse {
+export interface LepiusResponse {
   session_id: UUID;
   query: string;
   resolved_query: string;

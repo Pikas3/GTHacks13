@@ -7,10 +7,10 @@ from app.ai.generation import MockResponseGenerator
 from app.ai.intent import MockIntentClassifier
 from app.ai.retrieval import HybridResourceRetriever
 from app.ai.semantic_diff import MockSemanticDiffService
-from app.ambient.context import ContextResolver
-from app.ambient.memory import MemoryService
-from app.ambient.orchestrator import AmbientOrchestrator
-from app.ambient.personalization import PersonalizationService
+from app.lepius.context import ContextResolver
+from app.lepius.memory import MemoryService
+from app.lepius.orchestrator import LepiusOrchestrator
+from app.lepius.personalization import PersonalizationService
 from app.impiricus.mock_ion import MockIONService
 from app.ingestion.seed import stable_id
 from tests.fakes import (
@@ -57,8 +57,8 @@ def ion(hcps, interactions, resources) -> MockIONService:
 
 
 @pytest.fixture
-def orchestrator(embedder, hcps, resources, interactions, conversations, ion) -> AmbientOrchestrator:
-    return AmbientOrchestrator(
+def orchestrator(embedder, hcps, resources, interactions, conversations, ion) -> LepiusOrchestrator:
+    return LepiusOrchestrator(
         intent_classifier=MockIntentClassifier(),
         retriever=HybridResourceRetriever(resources, embedder),
         generator=MockResponseGenerator(),

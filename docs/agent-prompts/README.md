@@ -6,7 +6,7 @@ gotchas, and a definition of done.
 
 | File | Person | Branch | TODO tags |
 |---|---|---|---|
-| [A-frontend.md](A-frontend.md) | A: Frontend / UX | `feature/frontend-ambient` | `TODO(frontend)` |
+| [A-frontend.md](A-frontend.md) | A: Frontend / UX | `feature/frontend-lepius` | `TODO(frontend)` |
 | [B-ai-rag.md](B-ai-rag.md) | B: AI / RAG | `feature/ai-rag` | `TODO(ai-rag)`, `TODO(diff)` |
 | [C-backend-db.md](C-backend-db.md) | C: Backend / Database | `feature/tigerdata` | `TODO(database)` |
 | [D-voice.md](D-voice.md) | D: Voice / Integration | `feature/voice-elevenlabs` | `TODO(voice)` |

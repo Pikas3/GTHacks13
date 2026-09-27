@@ -1,7 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from app.schemas.ambient import HCPContext
+from app.schemas.lepius import HCPContext
 from app.schemas.hcp import HCPInterestRead
 from app.schemas.intelligence import Recommendation
 from app.schemas.signals import EngagementSignal

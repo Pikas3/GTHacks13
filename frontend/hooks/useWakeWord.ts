@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Continuous browser SpeechRecognition listening for the "hey Ambient" wake phrase.
+ * Continuous browser SpeechRecognition listening for the "hey Lepius" wake phrase.
  * Active only while `enabled` is true (typically orb idle). Stops cleanly on unmount.
  */
 import { useEffect, useRef, useState } from "react";

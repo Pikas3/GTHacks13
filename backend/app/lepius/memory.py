@@ -34,7 +34,7 @@ def timeline_label(ev: InteractionEventRead) -> str:
         case EventType.RESOURCE_SAVED:
             return f"Saved {title}"
         case EventType.SESSION_STARTED:
-            return "Started an Ambient session"
+            return "Started an Lepius session"
         case EventType.VOICE_QUERY | EventType.TEXT_QUERY | EventType.FOLLOW_UP:
             return f'Asked "{ev.query_text}"' if ev.query_text else f"Asked about {ev.topic or ev.entity}"
         case _:

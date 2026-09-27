@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EngagementSignal } from "@/lib/types";
 
-/** Structured engagement signals produced by Ambient interactions (hackathon scoring heuristic). */
+/** Structured engagement signals produced by Lepius interactions (hackathon scoring heuristic). */
 export function SignalFeed({ signals }: { signals: EngagementSignal[] }) {
   return (
     <Card>
@@ -14,7 +14,7 @@ export function SignalFeed({ signals }: { signals: EngagementSignal[] }) {
         <CardTitle>Recent structured signals</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {signals.length === 0 && <p className="text-sm text-muted-foreground">Ask something in Ambient to generate signals.</p>}
+        {signals.length === 0 && <p className="text-sm text-muted-foreground">Ask something in Lepius to generate signals.</p>}
         <AnimatePresence initial={false}>
           {signals.slice(0, 10).map((s, i) => (
             <motion.div

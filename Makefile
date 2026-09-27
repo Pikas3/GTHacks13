@@ -1,4 +1,4 @@
-# Impiricus Ambient — developer shortcuts (hackathon prototype)
+# Impiricus Lepius — developer shortcuts (hackathon prototype)
 PYTHON ?= python3.12
 VENV := backend/.venv
 PY := $(abspath $(VENV))/bin/python
@@ -27,7 +27,7 @@ frontend-install: ## Install frontend deps
 db-up: ## Start local Timescale + pgvector database (port 5433)
 	docker compose up -d db
 	@echo "waiting for database..."
-	@until docker compose exec -T db pg_isready -U ambient -d ambient >/dev/null 2>&1; do sleep 1; done
+	@until docker compose exec -T db pg_isready -U lepius -d lepius >/dev/null 2>&1; do sleep 1; done
 	@echo "database ready"
 
 db-down: ## Stop local database
@@ -58,10 +58,10 @@ backend-test: ## Run backend unit tests (no DB or API keys required)
 
 # Integration tests migrate + seed a throwaway schema (itest_<random>) in this database and drop it
 # afterwards, so pointing at the demo DB or a Tiger Data service is safe.
-TEST_DATABASE_URL ?= postgresql+asyncpg://ambient:ambient@localhost:5433/ambient
+TEST_DATABASE_URL ?= postgresql+asyncpg://lepius:lepius@localhost:5433/lepius
 backend-itest: ## Run integration tests against a real DB (TEST_DATABASE_URL, default local compose)
 	cd backend && TEST_DATABASE_URL='$(TEST_DATABASE_URL)' $(PY) -m pytest -m integration tests/integration -v
-TEST_DATABASE_URL ?= postgresql+asyncpg://ambient:ambient@localhost:5433/ambient_test
+TEST_DATABASE_URL ?= postgresql+asyncpg://lepius:lepius@localhost:5433/lepius_test
 backend-itest: ## Run integration tests against a real DB (recreates TEST_DATABASE_URL; name must contain "test")
 	cd backend && TEST_DATABASE_URL=$(TEST_DATABASE_URL) $(PY) -m pytest -m integration tests/integration -v
 

@@ -1,1 +1,1 @@
-"""Ambient pipeline: orchestration, conversational context, structured memory, personalization."""
+"""Lepius pipeline: orchestration, conversational context, structured memory, personalization."""
