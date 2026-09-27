@@ -2,7 +2,7 @@
   "name": "impiricus-lepius-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "Impiricus Lepius — hackathon prototype frontend",
+  "description": "AskLepius — hackathon prototype frontend",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

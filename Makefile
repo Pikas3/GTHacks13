@@ -1,4 +1,4 @@
-# Impiricus Lepius — developer shortcuts (hackathon prototype)
+# AskLepius — developer shortcuts (hackathon prototype)
 PYTHON ?= python3.12
 VENV := backend/.venv
 PY := $(abspath $(VENV))/bin/python

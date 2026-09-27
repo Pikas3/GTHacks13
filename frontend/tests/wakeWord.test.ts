@@ -11,6 +11,20 @@ describe("wakeWord", () => {
     expect(matchesWakePhrase("heylepius")).toBe(true);
   });
 
+  it("matches common mis-transcriptions of Lepius", () => {
+    expect(matchesWakePhrase("hey lepus")).toBe(true);
+    expect(matchesWakePhrase("Hey, Lee Pius")).toBe(true);
+    expect(matchesWakePhrase("okay leap us")).toBe(true);
+    expect(matchesWakePhrase("hi lupus")).toBe(true);
+    expect(matchesWakePhrase("Hey leap years")).toBe(true);
+    expect(matchesWakePhrase("lepidus")).toBe(true);
+  });
+
+  it("does not fire on sound-alikes without a greeting mid-sentence", () => {
+    expect(matchesWakePhrase("what about a lupus patient")).toBe(false);
+    expect(matchesWakePhrase("hey leap using the guide")).toBe(false);
+  });
+
   it("rejects unrelated speech", () => {
     expect(matchesWakePhrase("what's new with Novara")).toBe(false);
     expect(matchesWakePhrase("hey Alexa")).toBe(false);

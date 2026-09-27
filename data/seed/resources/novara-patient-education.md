@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/novara/patient-edu
 # Novara Patient Education Brochure (SYNTHETIC)
 
 ## Synthetic Product Notice
-Novara (code NVR-000) is a FICTIONAL product for the Impiricus Lepius prototype. This brochure is demo content only and is not medical advice.
+Novara (code NVR-000) is a FICTIONAL product for the AskLepius prototype. This brochure is demo content only and is not medical advice.
 
 ## Why Novara Might Be Discussed
 In this FICTIONAL brochure, Novara is linked to placeholder "Condition X" and a synthetic HER2 testing conversation for demonstration visits.

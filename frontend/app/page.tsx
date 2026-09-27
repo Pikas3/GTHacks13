@@ -10,7 +10,7 @@ export default function Home() {
       <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-16 text-center">
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Ask. Remember. Ground every answer.</h1>
         <p className="max-w-xl text-muted-foreground">
-          Impiricus Lepius is a voice-native assistant for HCPs over trusted resources. It remembers what each HCP
+          AskLepius is a voice-native assistant for HCPs over trusted resources. It remembers what each HCP
           reviewed, knows what changed since, cites approved evidence, and turns every interaction into structured
           engagement signals.
         </p>

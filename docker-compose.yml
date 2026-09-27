@@ -1,4 +1,4 @@
-# Local development infrastructure for Impiricus Lepius (hackathon prototype).
+# Local development infrastructure for AskLepius (hackathon prototype).
 #
 #   docker compose up -d db                 # database only (recommended)
 #   docker compose --profile app up --build  # database + backend + frontend

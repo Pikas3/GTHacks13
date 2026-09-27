@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/lumetrex/access
 # Lumetrex Patient Access Guide (SYNTHETIC)
 
 ## Synthetic Product Notice
-Lumetrex (code LMX-000) is a FICTIONAL product for the Impiricus Lepius prototype. Not medical guidance.
+Lumetrex (code LMX-000) is a FICTIONAL product for the AskLepius prototype. Not medical guidance.
 
 ## Coverage Overview
 This FICTIONAL access guide describes a placeholder prior-authorization pathway for Lumetrex under a synthetic demo formulary. It is not a real benefits document. Many demo plans place Lumetrex on Tier Demo-1 after a short step-edit.

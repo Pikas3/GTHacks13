@@ -26,7 +26,7 @@ async def main() -> None:
     async with httpx.AsyncClient(timeout=30.0) as http:
         tts = ElevenLabsTTSProvider(settings, http)
         result = await tts.synthesize(
-            "Hello from Impiricus Lepius. Novara prescribing information version 2."
+            "Hello from AskLepius. Novara prescribing information version 2."
         )
         print("bytes", len(result.audio), "type", result.media_type, "provider", result.provider)
 

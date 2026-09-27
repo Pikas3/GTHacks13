@@ -1,9 +1,9 @@
-# Impiricus Lepius
+# AskLepius
 
 > **Hackathon prototype** (GTHacks 13, team Dinobox). Synthetic HCPs and **fictional** products only. Not a
 > medical device, not a diagnostic or prescribing tool, not patient-facing.
 
-Impiricus Lepius is a **voice-native, context-aware assistant for healthcare professionals (HCPs)**, built on
+AskLepius is a **voice-native, context-aware assistant for healthcare professionals (HCPs)**, built on
 top of Impiricus's physician intelligence. An HCP asks a question out loud. Lepius knows who they are and
 what they reviewed before, retrieves **approved** resources, tells them **what changed since they last
 looked**, answers with cited evidence, speaks the answer, and turns the interaction into structured

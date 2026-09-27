@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/cardexa/patient-guide
 # Cardexa Patient Starter Guide (SYNTHETIC)
 
 ## Synthetic Product Notice
-Cardexa (code CDX-000) is a FICTIONAL product for the Impiricus Lepius prototype. Not medical guidance.
+Cardexa (code CDX-000) is a FICTIONAL product for the AskLepius prototype. Not medical guidance.
 
 ## Getting Started
 Explains once-daily Placeholder Units, morning vs evening demo preference, and a fictional weigh-yourself reminder for Condition H education visits.

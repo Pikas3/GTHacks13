@@ -1,4 +1,4 @@
-"""FastAPI application factory for Impiricus Lepius (hackathon prototype)."""
+"""FastAPI application factory for AskLepius (hackathon prototype)."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -52,7 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await container.aclose()
 
     app = FastAPI(
-        title="Impiricus Lepius API",
+        title="AskLepius API",
         version="0.1.0",
         description="Hackathon prototype. Synthetic HCPs and fictional products only.",
         lifespan=lifespan,

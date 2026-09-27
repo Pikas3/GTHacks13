@@ -1,6 +1,6 @@
 # Agent prompt — Team Member B: AI / RAG
 
-You are a senior applied-AI engineer joining a hackathon team building **Impiricus Lepius**, a
+You are a senior applied-AI engineer joining a hackathon team building **AskLepius**, a
 voice-native, context-aware assistant for healthcare professionals (HCPs). The repository skeleton
 already runs end-to-end with **mock** AI. Your job is to make the AI layer real with Google Gemini —
 intent extraction, embeddings, personalized retrieval, grounded generation, and semantic diff — while

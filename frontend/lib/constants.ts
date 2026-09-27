@@ -1,6 +1,6 @@
 import type { ApiErrorCode, OrbState, ResourceType } from "@/lib/types";
 
-export const APP_NAME = "Impiricus Lepius";
+export const APP_NAME = "AskLepius";
 
 export const ORB_STATE_LABEL: Record<OrbState, string> = {
   idle: 'Hold to ask · or say "hey Lepius"',

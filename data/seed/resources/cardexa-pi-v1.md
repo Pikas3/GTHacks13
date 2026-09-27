@@ -10,7 +10,7 @@ source_url: https://example.invalid/synthetic/cardexa/pi-v1
 # Cardexa Prescribing Information (SYNTHETIC)
 
 ## Synthetic Product Notice
-Cardexa (code CDX-000) is a FICTIONAL product for the Impiricus Lepius prototype. Not medical guidance.
+Cardexa (code CDX-000) is a FICTIONAL product for the AskLepius prototype. Not medical guidance.
 
 ## Indication
 Cardexa is described as a placeholder therapy for "Condition H", a fictional heart failure model with reduced synthetic ejection metric.

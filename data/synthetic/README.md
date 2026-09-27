@@ -1,6 +1,6 @@
 # Synthetic data notice
 
-Everything under `data/` is **synthetic** and exists only for the Impiricus Lepius hackathon prototype.
+Everything under `data/` is **synthetic** and exists only for the AskLepius hackathon prototype.
 
 - **HCPs** (Dr. Maya Morgan, Dr. Ethan Chen, Dr. Sofia Patel) are invented people. Any resemblance to real
   clinicians is coincidental.

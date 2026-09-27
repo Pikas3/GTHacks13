@@ -75,6 +75,7 @@ export function useWakeWord({ enabled, onWake }: UseWakeWordOptions) {
           for (let i = ev.resultIndex; i < ev.results.length; i += 1) {
             chunk += ev.results[i]![0]!.transcript;
           }
+          if (process.env.NODE_ENV !== "production") console.debug("[wake] heard:", chunk);
           if (!armedRef.current || !matchesWakePhrase(chunk)) return;
           armedRef.current = false;
           try {
