@@ -88,6 +88,15 @@ def _provider_retry_delay_s(exc: BaseException) -> float | None:
     return None
 
 
+def _error_fields(exc: BaseException) -> dict[str, object]:
+    """Log fields for a provider error: type, HTTP status and a truncated message."""
+    return {
+        "error": type(exc).__name__,
+        "status": getattr(exc, "code", None) or getattr(exc, "status_code", None),
+        "detail": str(exc)[:300],
+    }
+
+
 class GeminiClient:
     def __init__(self, settings: Settings) -> None:
         if settings.google_api_key is None:
@@ -130,13 +139,13 @@ class GeminiClient:
                     extra={
                         "operation": operation,
                         "attempt": attempt,
-                        "error": type(exc).__name__,
+                        **_error_fields(exc),
                         "sleep_s": round(sleep_s, 3),
                     },
                 )
                 await asyncio.sleep(sleep_s)
         assert last_exc is not None
-        logger.warning("gemini call failed", extra={"operation": operation, "error": type(last_exc).__name__})
+        logger.warning("gemini call failed", extra={"operation": operation, **_error_fields(last_exc)})
         raise AppError(ErrorCode.GEMINI_UNAVAILABLE, "Gemini request failed") from last_exc
 
     async def generate_structured(
